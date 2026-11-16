@@ -1,0 +1,118 @@
+
+package com.example.healthband.data
+
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import java.util.Locale
+
+/**
+ * Fuente de mediciones simuladas para desarrollo y pruebas.
+ *
+ * Genera tramas del protocolo HB1 sin utilizar hardware real.
+ * También introduce errores controlados para evaluar el parser.
+ *
+ * @param intervalMs Tiempo entre ciclos de generación.
+ */
+class SimulatedMeasurementSource(
+    private val intervalMs: Long = 1000L
+) : MeasurementSource {
+
+    /**
+     * Genera continuamente fragmentos de mensajes HB1.
+     *
+     * La generación termina cuando se cancela el Flow.
+     */
+    override fun chunks(): Flow<String> = flow {
+
+        var sequence = 0L
+
+        while (true) {
+
+            sequence++
+
+            // Selecciona un escenario de prueba según la secuencia.
+            val message = when {
+
+                // Simula pérdida de contacto o medición inválida.
+                sequence % 15L == 0L -> {
+                    formatMessage(
+                        sequence = sequence,
+                        bpm = 0,
+                        ibi = 0,
+                        quality = 0
+                    )
+                }
+
+                // Genera un mensaje malformado deliberadamente.
+                sequence % 11L == 0L -> {
+                    "MENSAJE_INVALIDO\n"
+                }
+
+                // Genera una medición fisiológica de prueba.
+                else -> {
+                    val bpm = 70 + (sequence % 11).toInt()
+
+                    val ibi = 60000 / bpm
+
+                    formatMessage(
+                        sequence = sequence,
+                        bpm = bpm,
+                        ibi = ibi,
+                        quality = 1
+                    )
+                }
+            }
+
+            // Divide algunas tramas para probar su reconstrucción.
+            if (sequence % 5L == 0L) {
+
+                val middle = message.length / 2
+
+                emit(message.substring(0, middle))
+
+                delay(100L)
+
+                emit(message.substring(middle))
+
+            } else {
+
+                emit(message)
+            }
+
+            // Reenvía una trama para comprobar detección de duplicados.
+            if (sequence % 13L == 0L) {
+                emit(message)
+            }
+
+            // Simula el intervalo de transmisión entre mediciones.
+            delay(intervalMs)
+        }
+    }
+
+    /**
+     * Construye una trama con el formato provisional HB1.
+     *
+     * @param sequence Número secuencial.
+     * @param bpm Frecuencia cardíaca.
+     * @param ibi Intervalo entre pulsaciones en milisegundos.
+     * @param quality Indicador de validez.
+     * @return Mensaje completo, incluyendo salto de línea.
+     */
+    private fun formatMessage(
+        sequence: Long,
+        bpm: Int,
+        ibi: Int,
+        quality: Int
+    ): String {
+
+        return String.format(
+            Locale.US,
+            "HB1,SEQ=%06d,BPM=%03d,IBI=%04d,Q=%d\n",
+            sequence,
+            bpm,
+            ibi,
+            quality
+        )
+    }
+}
