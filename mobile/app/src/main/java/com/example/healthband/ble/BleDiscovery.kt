@@ -26,12 +26,16 @@ fun blePermissions(): Array<String> = if (Build.VERSION.SDK_INT >= 31) {
 class BleDiscovery(private val context: Context) {
     private val adapter get() = context.getSystemService(BluetoothManager::class.java)?.adapter
 
+    /** Comprueba los permisos de la operación sin exigir ubicación para reconectar. */
     @SuppressLint("MissingPermission")
-    fun unavailableReason(): String? = when {
+    fun unavailableReason(forScan: Boolean = true): String? = when {
         !context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE) || adapter == null ->
             "Bluetooth LE no está disponible en este dispositivo"
-        blePermissions().any { context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED } ->
+        forScan && blePermissions().any { context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED } ->
             "Se requieren permisos para buscar dispositivos BLE"
+        !forScan && Build.VERSION.SDK_INT >= 31 &&
+            context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ->
+            "Se requiere permiso para conectar el dispositivo BLE"
         adapter?.isEnabled != true -> "Activa Bluetooth en los ajustes de Android"
         else -> null
     }

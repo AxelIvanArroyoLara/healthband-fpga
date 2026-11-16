@@ -14,7 +14,6 @@ import android.content.Context
 import android.os.Build
 import com.example.healthband.data.MeasurementSource
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +22,16 @@ import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
 
 /** Describe una interrupción del transporte con un mensaje apto para la interfaz. */
-class BleFailure(message: String, val disconnected: Boolean = false) : Exception(message)
+class BleFailure(message: String, val disconnected: Boolean = false) : Exception(message) {
+    companion object {
+        /** Distingue una pérdida de enlace de un intento interrumpido antes de recibir mediciones. */
+        internal fun linkEnded(status: Int, wasSubscribed: Boolean): BleFailure = if (wasSubscribed) {
+            BleFailure("El dispositivo BLE se desconectó ($status)", disconnected = true)
+        } else {
+            BleFailure("La conexión BLE terminó antes de confirmar la suscripción ($status)")
+        }
+    }
+}
 
 /**
  * Abre un GATT por colección y entrega los fragmentos ASCII al repositorio.
@@ -41,15 +49,17 @@ class BleMeasurementSource(
     }
 
     private fun notifications(): Flow<String?> = callbackFlow {
-        BleDiscovery(context).unavailableReason()?.let { throw BleFailure(it) }
+        BleDiscovery(context).unavailableReason(forScan = false)?.let { throw BleFailure(it) }
         val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
             ?: throw BleFailure("Adaptador BLE no disponible")
-        val subscribed = AtomicBoolean(false)
+        val subscriptionLock = Any()
+        var subscribed = false
         val callback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 when {
-                    newState == BluetoothProfile.STATE_DISCONNECTED ->
-                        close(BleFailure("El dispositivo BLE se desconectó ($status)", disconnected = true))
+                    newState == BluetoothProfile.STATE_DISCONNECTED -> synchronized(subscriptionLock) {
+                        close(BleFailure.linkEnded(status, subscribed))
+                    }
                     status != BluetoothGatt.GATT_SUCCESS ->
                         close(BleFailure("Falló la conexión GATT ($status)"))
                     newState == BluetoothProfile.STATE_CONNECTED ->
@@ -85,12 +95,14 @@ class BleMeasurementSource(
             }
 
             override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
-                if (descriptor.uuid != CCCD) return
-                if (status != BluetoothGatt.GATT_SUCCESS) {
-                    close(BleFailure("El dispositivo rechazó la suscripción ($status)"))
-                } else {
-                    synchronized(subscribed) {
-                        if (subscribed.compareAndSet(false, true)) trySend(null)
+                if (descriptor.uuid != CCCD || !matchesConfig(descriptor.characteristic)) return
+                synchronized(subscriptionLock) {
+                    if (subscribed) return
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        close(BleFailure("El dispositivo rechazó la suscripción ($status)"))
+                    } else if (trySend(null).isSuccess) {
+                        // La confirmación y la caducidad comparten el mismo orden que los fragmentos.
+                        subscribed = true
                     }
                 }
             }
@@ -107,10 +119,13 @@ class BleMeasurementSource(
                 characteristic.value?.let { deliver(characteristic, it) }
             }
 
+            private fun matchesConfig(characteristic: BluetoothGattCharacteristic): Boolean =
+                characteristic.uuid == config.characteristic && characteristic.service.uuid == config.service
+
             private fun deliver(characteristic: BluetoothGattCharacteristic, bytes: ByteArray) {
-                if (characteristic.uuid != config.characteristic || characteristic.service.uuid != config.service) return
-                synchronized(subscribed) {
-                    if (!subscribed.get()) return
+                if (!matchesConfig(characteristic)) return
+                synchronized(subscriptionLock) {
+                    if (!subscribed) return
                     if (trySend(bytes.toString(Charsets.US_ASCII)).isFailure) {
                         // La pérdida de bytes podría convertir fragmentos vecinos en una trama incorrecta.
                         close(BleFailure("Se saturó la recepción BLE"))
@@ -126,7 +141,9 @@ class BleMeasurementSource(
             ?: throw BleFailure("No se pudo abrir la conexión GATT")
         val timeout = launch {
             delay(15_000)
-            if (!subscribed.get()) close(BleFailure("Tiempo de espera agotado al conectar BLE"))
+            synchronized(subscriptionLock) {
+                if (!subscribed) close(BleFailure("Tiempo de espera agotado al conectar BLE"))
+            }
         }
         awaitClose {
             timeout.cancel()
