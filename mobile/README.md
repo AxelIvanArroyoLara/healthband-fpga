@@ -59,6 +59,43 @@ Room 2.8.5 almacena el historial y sus episodios en una base privada.
 KSP 2.3.12 genera las implementaciones de Room. La base queda excluida del
 respaldo y la transferencia, y las reglas de Git ignoran los archivos SQLite.
 
+### Publicación en vivo y confirmación de Room
+
+El monitor publica las tramas interpretadas antes de enviarlas al escritor.
+El contador de lecturas guardadas avanza cuando Room confirma la transacción.
+Los avisos del historial aparecen por separado y la recepción sigue activa
+si falla la lectura de la línea base, si Room falla al escribir o si se satura
+la cola de grabación. Si la referencia tarda en cargarse, el análisis empieza
+al disponer de ella y continúa con esa referencia durante el resto de la captura.
+
+Cada adquisición tiene una cola FIFO de hasta 32 muestras válidas, más una
+escritura en curso. Room abre la sesión y confirma su primera muestra válida
+en una transacción. Las posteriores comparten esa sesión y confirman juntos
+la lectura, su episodio si lo hay y el cierre recuperable. Si la cola se
+llena, el escritor conserva el prefijo ya encolado y deja de aceptar muestras
+de esa adquisición. Si una escritura falla, se descarta lo pendiente y se
+conserva el prefijo ya confirmado.
+
+Al detenerse o desconectarse, la captura libera su fuente y retira la lectura
+actual. Se espera hasta cinco segundos por el drenaje. La actualización final
+de Room tiene su propio límite de dos segundos. Esos plazos usan cancelación
+cooperativa. Una operación nativa que tarde en devolver el control puede
+retrasar el reinicio. Durante el cierre se mantiene deshabilitado el borrado
+del historial. Un reinicio solicitado queda en espera, con su estado
+propio, hasta que termine el cierre anterior. Una cancelación del ámbito o
+una terminación del proceso puede perder las muestras todavía en cola. Un
+cierre incompleto conserva la fecha de la última transacción confirmada.
+
+### Calidad histórica
+
+`startsSegment` y las marcas de tiempo de las muestras válidas permiten
+separar segmentos tras Q=0, saltos de secuencia o caducidad de la lectura.
+Una desconexión finaliza la adquisición y la reconexión guarda sus muestras
+en otra sesión. Los datos guardados permiten identificar huecos entre dos muestras
+válidas. El esquema actual omite el motivo exacto, el número de tramas Q=0
+y el inicio preciso de un hueco sin muestras válidas que lo delimiten.
+La gráfica histórica presenta muestras en orden y cortes, con un eje por muestra.
+
 ## Detección experimental
 
 Marca **Registrar como sesión de reposo** antes de iniciar el monitor. Cada
@@ -97,7 +134,9 @@ anotaciones del usuario y este prototipo carece de validación clínica.
 4. Tras una desconexión, vuelve a seleccionar el periférico para iniciar una
    sesión y un parser nuevos. La app mantiene las direcciones únicamente en
    memoria. Los permisos de ubicación solo se solicitan en Android 11 y
-   anteriores para el escaneo de primer plano.
+   anteriores para el escaneo de primer plano. Una terminación previa a la
+   confirmación CCCD se presenta como fallo de conexión. Cuando el descriptor
+   ya se confirmó, la terminación se presenta como desconexión.
 
 La política de reinicio del contador dentro de una conexión y los rangos
 definitivos dependen del acuerdo con firmware y FPGA.
@@ -112,10 +151,25 @@ definitivos dependen del acuerdo con firmware y FPGA.
 | Fragmentos HB1 → parser → estado | Pruebas JVM con lotes de 100 válidas y 10 malformadas, fragmentos de 19 caracteres, duplicados, fuera de orden, salto de secuencia, Q=0, caducidad y colección nueva. |
 | Simulador → dashboard → Room | Prueba instrumentada de Compose. Inicia la fuente, verifica la lectura, recrea la actividad, detiene y comprueba la sesión guardada. |
 | Simulador → detector → Room | Prueba instrumentada con reloj monotónico controlado, referencia de tres sesiones y escenario de 105 BPM. Pruebas JVM para ruido, pico breve, pérdida, continuidad y calibración insuficiente. |
-| Persistencia local | Pruebas instrumentadas para reapertura, estadísticas, borrado en cascada, actualización de contexto y migración de Room de v1 a v2. |
+| Persistencia local | Pruebas instrumentadas para reapertura, estadísticas, borrado en cascada, actualización de contexto y migración v1 a v2. Una transacción retenida y fallos inyectados verifican la lectura en vivo, la cola acotada, la cancelación del drenaje y la separación de sesiones. |
 | Desconexión y reconexión | Prueba instrumentada con fuente de transporte controlada y fragmento incompleto antes de reconectar. |
 | ESP32 → BLE → Android | Pendiente de hardware. El emulador y el transporte controlado cubren lógica de Android sin alcanzar el enlace físico. |
 | FPGA / MAX30100 → ESP32 → Android | Pendiente de hardware. |
+
+La auditoría inicial reprodujo 13 pruebas JVM, 7 instrumentadas y Lint con
+0 errores y 11 advertencias. Después de la estabilización pasaron 20 pruebas
+JVM y 14 instrumentadas en el emulador de Android 17 (API 37). Lint volvió a
+reportar 0 errores y 11 advertencias de versiones y recursos de plantilla.
+
+### Hallazgos de la estabilización
+
+| Clasificación | Hallazgo y resolución |
+| --- | --- |
+| Error reproducible, gravedad alta | Una transacción retenida en Room impedía publicar una segunda lectura ya disponible. La prueba falló con el código anterior y pasó con la escritura desacoplada. |
+| Riesgo técnico confirmado, gravedad alta | Una excepción de Room recorría el mismo manejo que un fallo de transporte. Una prueba con excepción inyectada confirma que ahora BLE sigue entregando lecturas y Room conserva las transacciones previas. |
+| Riesgo técnico confirmado, gravedad media | Una terminación GATT previa al CCCD figuraba como desconexión y el timeout podía competir con la confirmación. Se separaron los estados y se serializó la confirmación con el timeout. |
+| Limitación pendiente de hardware | Faltan modelo, UUID, configuración GATT y pruebas físicas. El formato provisional HB1 carece de identificador de arranque para reconocer de forma inequívoca un reinicio de la FPGA. |
+| Mejora opcional | Un registro de eventos de calidad permitiría atribuir los huecos. Los segmentos y tiempos del esquema actual cubren la gráfica del MVP. |
 
 ### Procedimiento con hardware
 
@@ -128,7 +182,10 @@ definitivos dependen del acuerdo con firmware y FPGA.
    que los valores actuales desaparecen y regresan con la siguiente trama.
    Apaga el periférico, comprueba el estado desconectado y vuelve a
    seleccionarlo. Envía una trama con secuencia inicial y verifica que arranca
-   una sesión independiente.
+   una sesión independiente. En un intento separado, usa temporalmente un
+   UUID de característica ajeno y comprueba que el monitor muestra un fallo
+   de conexión antes de confirmar el CCCD. Restablece el UUID correcto y
+   verifica que se pueden recibir notificaciones de nuevo.
 3. **FPGA con señal sintética.** Inyecta una señal PPG de periodo conocido.
    Captura la salida UART a 115200, 8N1 y compara campos y secuencias con las
    lecturas Android. Repite con señal inválida y confirma que Q=0 queda fuera

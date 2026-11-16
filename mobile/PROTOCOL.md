@@ -32,3 +32,17 @@ HB1,SEQ=000012,BPM=075,IBI=0800,Q=1
   milisegundos Unix.
 - Para GATT se requieren los UUID que confirme el equipo del puente. En el
   enlace FPGA → ESP32 se espera UART a 115200, 8N1, con una trama por segundo.
+
+
+## Reinicio de secuencia de la FPGA
+
+La regla circular sigue siendo provisional. Dentro de una misma colección,
+el receptor no interpreta un salto de secuencia como reinicio. Por ejemplo,
+`001000 → 000001` se rechaza por orden y `999990 → 000010` se acepta como
+avance circular. Ambos casos podrían corresponder a un reinicio real.
+
+Para probar un reinicio conocido, detén la adquisición y vuelve a seleccionar
+el periférico para iniciar un parser nuevo. Queda por acordar con el equipo
+si el puente debe reiniciar el enlace al reiniciar la FPGA o si una revisión
+de HB1 debe anunciar un nuevo arranque explícitamente. La caducidad visual
+también puede ocurrir por pérdida de datos y no reinicia el contador.
