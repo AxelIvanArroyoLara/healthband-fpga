@@ -1,6 +1,7 @@
 
 package com.example.healthband.data
 
+import com.example.healthband.protocol.Hb1Parser
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -13,9 +14,11 @@ import java.util.Locale
  * También introduce errores controlados para evaluar el parser.
  *
  * @param intervalMs Tiempo entre ciclos de generación.
+ * @param sustainedDemo Genera una elevación continua de prueba entre las tramas 6 y 28.
  */
 class SimulatedMeasurementSource(
-    private val intervalMs: Long = 1000L
+    private val intervalMs: Long = 1000L,
+    private val sustainedDemo: Boolean = false
 ) : MeasurementSource {
 
     /**
@@ -33,6 +36,10 @@ class SimulatedMeasurementSource(
 
             // Selecciona un escenario de prueba según la secuencia.
             val message = when {
+                sustainedDemo -> {
+                    val bpm = if (sequence in 6L..28L) 105 else 75
+                    formatMessage(sequence, bpm, 60000 / bpm, 1)
+                }
 
                 // Simula pérdida de contacto o medición inválida.
                 sequence % 15L == 0L -> {

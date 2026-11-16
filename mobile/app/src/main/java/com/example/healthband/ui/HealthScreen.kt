@@ -5,8 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.healthband.analysis.AnomalyStatus
 
 /**
  * Pantalla principal de HealthBand.
@@ -30,6 +31,7 @@ fun HealthScreen(
 
     // Observa el estado respetando el ciclo de vida de Android.
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var declaredRest by rememberSaveable { mutableStateOf(false) }
 
     // Obtiene la última medición para facilitar su presentación.
     val measurement = state.measurement
@@ -70,7 +72,7 @@ fun HealthScreen(
             )
 
             Text(
-                text = "Modo simulación",
+                text = if (state.isBle) "Fuente Bluetooth LE" else "Fuente simulador",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -145,14 +147,15 @@ fun HealthScreen(
                         fontWeight = FontWeight.Bold
                     )
 
-                    Text(
-                        text = state.status
-                    )
+                    Text(state.status.label)
+                    Text(state.ageMs?.let { "Última trama aceptada hace ${it / 1000} s" }
+                        ?: "Sin tramas recientes")
 
                     // La calidad depende de la validez del mensaje.
                     Text(
                         text = "Calidad: " +
                                 when {
+                                    state.status == ReadingStatus.STALE -> "Datos obsoletos"
                                     measurement == null -> "Sin datos"
                                     measurement.isValid -> "Válida"
                                     else -> "Inválida"
@@ -169,6 +172,8 @@ fun HealthScreen(
                                 state.receivedCount
                     )
 
+                    Text("Lecturas guardadas: ${state.persistedCount}")
+
                     Text(
                         text = "Errores detectados: " +
                                 state.errorCount
@@ -176,9 +181,23 @@ fun HealthScreen(
                 }
             }
 
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("BPM recientes", style = MaterialTheme.typography.titleMedium)
+                    BpmChart(state.recentBpm)
+                }
+            }
+
             // --- Visualización de errores ---
 
             // Solo presenta el mensaje cuando existe un error.
+            state.storageError?.let { error ->
+                Text("Historial · $error", color = MaterialTheme.colorScheme.error)
+            }
+            if (!state.isRunning && state.historyBusy) {
+                Text("Finalizando el historial…")
+            }
+
             state.lastError?.let { error ->
 
                 Text(
@@ -189,39 +208,49 @@ fun HealthScreen(
                 )
             }
 
-            // --- Controles de simulación ---
-
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-
-                    // El botón alterna entre iniciar y detener.
-                    if (state.isRunning) {
-                        viewModel.stopSimulation()
-                    } else {
-                        viewModel.startSimulation()
-                    }
+            if (state.isRunning) {
+                AnalysisCard(state)
+                Button(onClick = viewModel::stopSession, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (state.isBle) "Desconectar" else "Detener simulación")
                 }
-            ) {
-
-                Text(
-                    text = if (state.isRunning) {
-                        "Detener simulación"
-                    } else {
-                        "Iniciar simulación"
-                    }
-                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = declaredRest, onCheckedChange = { declaredRest = it })
+                    Text("Registrar como sesión de reposo")
+                }
+                Button(
+                    onClick = { viewModel.startSimulation(declaredRest) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Iniciar simulación")
+                }
+                TextButton(onClick = { viewModel.startSimulation(declaredRest = false, sustainedDemo = true) }) {
+                    Text("Simular elevación sostenida")
+                }
             }
+            BleControls(viewModel, visible = !state.isRunning, declaredRest = declaredRest)
+        }
+    }
+}
 
-            // --- Aviso de uso experimental ---
-
-            Text(
-                text = "Datos simulados para desarrollo. " +
-                        "No representan mediciones médicas.",
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+/** Presenta la calibración y el resultado experimental de la lectura actual. */
+@Composable
+private fun AnalysisCard(state: HealthUiState) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Análisis experimental", style = MaterialTheme.typography.titleMedium)
+            val baseline = state.baseline
+            if (baseline == null) {
+                Text("Calibración pendiente. Se requieren al menos tres sesiones de reposo de esta fuente.")
+            } else {
+                Text("Referencia de reposo · ${formatBpm(baseline.bpm)} BPM · ${baseline.sessions} sesiones")
+            }
+            if (state.anomaly.status != AnomalyStatus.INSUFFICIENT || baseline != null) {
+                Text(state.anomaly.status.label)
+            }
+            state.anomaly.episode?.let { episode ->
+                Text("${episode.durationMs / 1000} s · Pico +" + formatBpm(episode.peakBpm - episode.baselineBpm) + " BPM")
+            }
         }
     }
 }

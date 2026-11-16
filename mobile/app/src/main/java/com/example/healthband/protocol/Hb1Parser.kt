@@ -37,6 +37,7 @@ class Hb1Parser(
 
     // Almacena los caracteres de una trama todavía incompleta.
     private val buffer = StringBuilder()
+    private var discardUntilNewline = false
 
     // Conserva la última secuencia aceptada para detectar duplicados.
     private var lastSequence: Long? = null
@@ -61,29 +62,22 @@ class Hb1Parser(
 
         for (character in chunk) {
 
-            if (character == '\n') {
-
-                // El delimitador indica que ya existe una trama completa.
-                val line = buffer.toString().trimEnd('\r')
-
-                buffer.clear()
-
-                results.add(parseLine(line))
-
-            } else {
-
-                // Conserva el contenido hasta recibir el delimitador.
-                buffer.append(character)
-
-                // Evita que una transmisión incorrecta llene el buffer.
-                if (buffer.length > MAX_FRAME_LENGTH) {
-
+            when {
+                character == '\n' -> {
+                    if (!discardUntilNewline) {
+                        results.add(parseLine(buffer.toString().removeSuffix("\r")))
+                    }
                     buffer.clear()
-
-                    results.add(
-                        ParseResult.Error("Trama demasiado larga")
-                    )
+                    discardUntilNewline = false
                 }
+                discardUntilNewline -> Unit
+                buffer.length == MAX_FRAME_LENGTH -> {
+                    // Descarta la línea completa, incluido cualquier sufijo con apariencia de trama.
+                    buffer.clear()
+                    discardUntilNewline = true
+                    results.add(ParseResult.Error("Trama demasiado larga"))
+                }
+                else -> buffer.append(character)
             }
         }
 
@@ -123,7 +117,7 @@ class Hb1Parser(
                 )
             }
 
-            if (sequence < previousSequence) {
+            if (sequenceDistance(previousSequence, sequence) >= SEQUENCE_MODULUS / 2) {
                 return ParseResult.Error(
                     "Secuencia fuera de orden: $sequence"
                 )
@@ -168,9 +162,16 @@ class Hb1Parser(
     fun reset() {
         buffer.clear()
         lastSequence = null
+        discardUntilNewline = false
     }
 
     companion object {
+        const val SEQUENCE_MODULUS = 1_000_000L
+
+        /** Calcula el avance en el contador circular provisional de seis dígitos. */
+        fun sequenceDistance(previous: Long, next: Long): Long =
+            (next - previous + SEQUENCE_MODULUS) % SEQUENCE_MODULUS
+
 
         // Longitud máxima admitida para una trama incompleta.
         private const val MAX_FRAME_LENGTH = 128

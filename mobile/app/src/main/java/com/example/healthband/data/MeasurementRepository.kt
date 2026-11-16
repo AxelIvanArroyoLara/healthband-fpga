@@ -1,4 +1,3 @@
-
 package com.example.healthband.data
 
 import com.example.healthband.protocol.Hb1Parser
@@ -14,11 +13,11 @@ import kotlinx.coroutines.flow.flow
  * convierte en resultados mediante el parser HB1.
  *
  * @param source Fuente de datos utilizada.
- * @param parser Intérprete del protocolo.
+ * @param parserFactory Crea un intérprete independiente para cada colección.
  */
 class MeasurementRepository(
     private val source: MeasurementSource,
-    private val parser: Hb1Parser = Hb1Parser()
+    private val parserFactory: () -> Hb1Parser = { Hb1Parser() }
 ) {
 
     /**
@@ -30,8 +29,7 @@ class MeasurementRepository(
      */
     fun measurements(): Flow<ParseResult> = flow {
 
-        // Reinicia el estado del parser para la nueva sesión.
-        parser.reset()
+        val parser = parserFactory()
 
         source.chunks().collect { chunk ->
 
