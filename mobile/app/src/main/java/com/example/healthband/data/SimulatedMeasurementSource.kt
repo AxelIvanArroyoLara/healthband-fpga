@@ -1,6 +1,7 @@
 
 package com.example.healthband.data
 
+import com.example.healthband.protocol.Hb1Parser
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

@@ -93,7 +93,9 @@ class HealthViewModel : ViewModel() {
                         }
                     }
                 }
-
+                _uiState.update {
+                    it.copy(isRunning = false, measurement = null, status = "Simulador detenido")
+                }
             } catch (exception: CancellationException) {
 
                 // La cancelación normal no debe presentarse como error.
@@ -104,18 +106,13 @@ class HealthViewModel : ViewModel() {
                 // Un fallo inesperado detiene y limpia la lectura.
                 _uiState.update {
                     it.copy(
+                        isRunning = false,
                         measurement = null,
                         status = "Error del simulador",
                         lastError = exception.message
                     )
                 }
 
-            } finally {
-
-                // Garantiza que el estado refleje el fin del trabajo.
-                _uiState.update {
-                    it.copy(isRunning = false)
-                }
             }
         }
     }
