@@ -1,0 +1,86 @@
+# Intel Quartus and FPGA build output
+db/
+incremental_db/
+output_files/
+simulation/
+*.rpt
+*.summary
+*.qws
+*.qdb
+*.sof
+*.pof
+*.jic
+*.smsg
+
+# Verilog simulators
+*.vcd
+*.wlf
+transcript
+vsim.wlf
+work/
+
+# ESP-IDF and embedded build output
+build/
+sdkconfig
+sdkconfig.old
+managed_components/
+.espressif/
+
+# Android Studio and Gradle (source Gradle configuration remains tracked)
+.gradle/
+.idea/
+local.properties
+*.iml
+captures/
+*.apk
+*.aab
+
+# Flutter and React Native caches/build output, if selected later
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+android/.gradle/
+ios/Pods/
+node_modules/
+
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.venv/
+venv/
+env/
+ENV/
+
+# Operating-system and editor temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+
+# Local credentials, secrets, and machine-specific settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+credentials.json
+secrets/
+
+# Local physiological data and databases
+*.db
+*.sqlite
+*.sqlite3
+data/local/
+data/physiological/
