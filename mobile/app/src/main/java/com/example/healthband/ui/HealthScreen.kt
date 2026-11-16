@@ -46,7 +46,6 @@ fun HealthScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding()
                         .padding(20.dp)
                 )
             }

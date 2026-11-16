@@ -12,15 +12,24 @@ import com.example.healthband.ble.BleMeasurementSource
 import com.example.healthband.data.MeasurementRepository
 import com.example.healthband.data.MeasurementSource
 import com.example.healthband.data.SimulatedMeasurementSource
+import com.example.healthband.history.HealthDatabase
+import com.example.healthband.history.HistoryRepository
+import com.example.healthband.model.Measurement
+import com.example.healthband.protocol.Hb1Parser
+import com.example.healthband.protocol.ParseResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Coordina la sesión de adquisición y conserva su estado durante cambios de configuración.
@@ -33,6 +42,8 @@ class HealthViewModel(
     constructor(application: Application) : this(application, 4_000L)
 
     private val discovery = BleDiscovery(application)
+    private val history = HistoryRepository(HealthDatabase.get(application))
+    private val acquisition = Mutex()
     private val state = MutableStateFlow(HealthUiState())
     val uiState = state.asStateFlow()
     private var session: Job? = null
@@ -95,39 +106,71 @@ class HealthViewModel(
             status = if (isBle) ReadingStatus.CONNECTING else ReadingStatus.WAITING
         )
         session = viewModelScope.launch {
-            previous?.join()
             scan?.join()
-            var startedAt = SystemClock.elapsedRealtime()
-            val repository = MeasurementRepository(source {
-                startedAt = SystemClock.elapsedRealtime()
-                state.update { it.copy(status = ReadingStatus.WAITING) }
-            })
-            try {
-                coroutineScope {
-                    val ticker = launch {
-                        while (true) {
-                            delay(200)
-                            state.update { it.tick(SystemClock.elapsedRealtime(), startedAt, staleTimeoutMs) }
-                        }
-                    }
-                    try {
-                        repository.measurements().collect { result ->
-                            state.update { it.receive(result, SystemClock.elapsedRealtime(), staleTimeoutMs) }
-                        }
-                    } finally {
-                        ticker.cancel()
+            acquisition.withLock { collectSession(isBle, source) }
+        }
+    }
+
+    /** Guarda el historial dentro del ciclo de vida de la adquisición activa. */
+    private suspend fun collectSession(isBle: Boolean, source: (() -> Unit) -> MeasurementSource) {
+        var startedAt = SystemClock.elapsedRealtime()
+        var sessionId: Long? = null
+        var previous: Measurement? = null
+        var previousAt = startedAt
+        val repository = MeasurementRepository(source {
+            startedAt = SystemClock.elapsedRealtime()
+            state.update { it.copy(status = ReadingStatus.WAITING) }
+        })
+        try {
+            coroutineScope {
+                val ticker = launch {
+                    while (true) {
+                        delay(200)
+                        state.update { it.tick(SystemClock.elapsedRealtime(), startedAt, staleTimeoutMs) }
                     }
                 }
-                clearReading(if (isBle) ReadingStatus.DISCONNECTED else ReadingStatus.STOPPED)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (failure: BleFailure) {
-                clearReading(
-                    if (failure.disconnected) ReadingStatus.DISCONNECTED else ReadingStatus.ERROR,
-                    failure.message
-                )
-            } catch (_: Exception) {
-                clearReading(ReadingStatus.ERROR, "La fuente de mediciones se interrumpió")
+                try {
+                    repository.measurements().collect { result ->
+                        val now = SystemClock.elapsedRealtime()
+                        if (result is ParseResult.Success) {
+                            val measurement = result.measurement
+                            val id = sessionId ?: history.begin(!isBle, measurement.receivedAtMs).also {
+                                sessionId = it
+                            }
+                            val prior = previous
+                            val startsSegment = prior == null || !prior.isValid ||
+                                Hb1Parser.sequenceDistance(prior.sequence, measurement.sequence) != 1L ||
+                                now - previousAt >= staleTimeoutMs
+                            history.record(id, measurement, startsSegment)
+                            previous = measurement
+                            previousAt = now
+                        }
+                        state.update { it.receive(result, now, staleTimeoutMs) }
+                    }
+                } finally {
+                    ticker.cancel()
+                }
+            }
+            clearReading(if (isBle) ReadingStatus.DISCONNECTED else ReadingStatus.STOPPED)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: BleFailure) {
+            clearReading(
+                if (failure.disconnected) ReadingStatus.DISCONNECTED else ReadingStatus.ERROR,
+                failure.message
+            )
+        } catch (_: Exception) {
+            clearReading(ReadingStatus.ERROR, "Se interrumpió la adquisición o la escritura del historial")
+        } finally {
+            // El cierre es breve y conserva la fecha incluso si el usuario detiene la adquisición.
+            sessionId?.let { id ->
+                withContext(NonCancellable) {
+                    try {
+                        history.finish(id, System.currentTimeMillis())
+                    } catch (_: Exception) {
+                        state.update { it.copy(lastError = "No se pudo confirmar el cierre del historial") }
+                    }
+                }
             }
         }
     }
