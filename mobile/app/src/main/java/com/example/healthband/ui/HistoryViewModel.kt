@@ -3,7 +3,9 @@ package com.example.healthband.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healthband.analysis.EpisodeContext
 import com.example.healthband.history.HealthDatabase
+import com.example.healthband.history.HistoryEpisode
 import com.example.healthband.history.HistoryRepository
 import com.example.healthband.history.HistorySample
 import com.example.healthband.history.SessionSummary
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -37,6 +40,26 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             .map { HistoryDetail(page, it) }
             .catch { failure.value = "No se pudieron leer las muestras de la sesión" }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val episodes = selection.map { it?.sessionId }.distinctUntilChanged().flatMapLatest { id ->
+        if (id == null) flowOf(null) else repository.episodes(id)
+            .map { HistoryEpisodes(id, it) }
+            .catch { failure.value = "No se pudieron leer los episodios de la sesión" }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Guarda el contexto seleccionado por el usuario para un episodio. */
+    fun annotate(sessionId: Long, episode: Long, context: EpisodeContext) {
+        viewModelScope.launch {
+            try {
+                repository.setEpisodeContext(sessionId, episode, context)
+                failure.value = null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                failure.value = "No se pudo guardar el contexto"
+            }
+        }
+    }
 
     fun select(id: Long) {
         selection.value = HistoryPage(id, 0)
@@ -71,3 +94,7 @@ data class HistoryPage(val sessionId: Long, val offset: Long)
 
 /** Muestras que pertenecen a la página solicitada. */
 data class HistoryDetail(val page: HistoryPage, val samples: List<HistorySample>)
+
+
+/** Episodios correspondientes a la sesión consultada. */
+data class HistoryEpisodes(val sessionId: Long, val episodes: List<HistoryEpisode>)

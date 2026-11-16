@@ -45,3 +45,25 @@ pueden consultar y eliminar sesiones, o vaciar todo el historial.
 
 Room mantiene la base en el almacenamiento privado de la aplicación.
 La configuración de respaldo y transferencia excluye la base de datos.
+
+## Detección experimental
+
+Marca **Registrar como sesión de reposo** antes de iniciar el monitor. Cada
+fuente se calibra con al menos tres sesiones y veinte muestras válidas por
+sesión. La app usa hasta doce sesiones recientes, con hasta 300 lecturas por
+sesión, y excluye sesiones con episodios confirmados. Se calcula la mediana de
+las medianas por sesión y se estima la MAD con la misma ponderación por sesión.
+
+La elevación debe superar la referencia más el mayor valor entre 12 BPM, 15 %
+de la referencia y tres MAD escaladas (factor 1,4826). Debe sostenerse durante
+al menos 15 segundos y diez muestras. Una lectura inválida o una interrupción
+superior a 2,5 segundos corta la ventana. La referencia se fija al comenzar cada
+sesión. Los umbrales se pueden ajustar en `AnomalyConfig`.
+
+**Simular elevación sostenida** envía 105 BPM desde la sexta trama durante
+23 muestras. Tras calibrar el simulador, abre la sesión resultante en
+**Historial** para ver el episodio y elegir su contexto. Los resultados
+describen desviaciones estadísticas del reposo de referencia. Los contextos
+son anotaciones del usuario y el análisis es experimental.
+
+[MAD en el manual de estadística de NIST](https://www.itl.nist.gov/div898/handbook/eda/section3/eda356.htm)

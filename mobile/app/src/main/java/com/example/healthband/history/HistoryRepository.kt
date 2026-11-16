@@ -1,6 +1,10 @@
 package com.example.healthband.history
 
 import androidx.room.withTransaction
+import com.example.healthband.analysis.AnomalyConfig
+import com.example.healthband.analysis.Baseline
+import com.example.healthband.analysis.EpisodeContext
+import com.example.healthband.analysis.EpisodeProgress
 import com.example.healthband.model.Measurement
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -11,6 +15,7 @@ data class SessionSummary(
     val startedAtMs: Long,
     val endedAtMs: Long,
     val simulated: Boolean,
+    val declaredRest: Boolean,
     val validCount: Long,
     val averageBpm: Double?,
     val minBpm: Int?,
@@ -19,6 +24,9 @@ data class SessionSummary(
 
 /** Lectura histórica preparada para presentar y reconstruir segmentos. */
 data class HistorySample(val bpm: Int, val startsSegment: Boolean)
+
+/** Episodio y contexto preparados para el historial. */
+data class HistoryEpisode(val progress: EpisodeProgress, val context: EpisodeContext?)
 
 /** Persiste el historial sin acoplar la interfaz a las entidades Room. */
 class HistoryRepository(private val database: HealthDatabase) {
@@ -32,11 +40,18 @@ class HistoryRepository(private val database: HealthDatabase) {
         }
 
     /** Abre un periodo local con una marca de tiempo Unix. */
-    suspend fun begin(simulated: Boolean, nowMs: Long): Long =
-        dao.insertSession(SessionEntity(startedAtMs = nowMs, endedAtMs = nowMs, simulated = simulated))
+    suspend fun begin(simulated: Boolean, nowMs: Long, declaredRest: Boolean = false): Long =
+        dao.insertSession(SessionEntity(
+            startedAtMs = nowMs, endedAtMs = nowMs, simulated = simulated, declaredRest = declaredRest
+        ))
 
     /** Actualiza la lectura y el cierre recuperable en una sola transacción. */
-    suspend fun record(id: Long, measurement: Measurement, startsSegment: Boolean) {
+    suspend fun record(
+        id: Long,
+        measurement: Measurement,
+        startsSegment: Boolean,
+        episode: EpisodeProgress? = null
+    ) {
         val bpm = measurement.bpm ?: return
         val ibi = measurement.ibiMs ?: return
         if (!measurement.isValid) return
@@ -51,9 +66,34 @@ class HistoryRepository(private val database: HealthDatabase) {
                     startsSegment = startsSegment
                 )
             )
+            if (episode != null) {
+                dao.upsertEpisode(EpisodeUpdate(
+                    id, episode.startedElapsedMs, episode.startedAtMs,
+                    episode.durationMs, episode.peakBpm, episode.baselineBpm
+                ))
+            }
             dao.updateEnd(id, measurement.receivedAtMs)
         }
     }
+
+    /** Calcula la referencia con sesiones de reposo de la misma fuente y sin episodios confirmados. */
+    suspend fun baseline(simulated: Boolean, config: AnomalyConfig): Baseline? = database.withTransaction {
+        val ids = dao.baselineSessionIds(simulated, config.minimumSessionSamples)
+        val sampleLimit = maxOf(300, config.minimumSessionSamples)
+        Baseline.calculate(ids.map { dao.baselineSamples(it, sampleLimit) }, config)
+    }
+
+    fun episodes(id: Long): Flow<List<HistoryEpisode>> = dao.episodes(id).map { rows ->
+        rows.map {
+            HistoryEpisode(
+                EpisodeProgress(it.startedElapsedMs, it.startedAtMs, it.durationMs, it.peakBpm, it.baselineBpm),
+                EpisodeContext.entries.firstOrNull { context -> context.name == it.context }
+            )
+        }
+    }
+
+    suspend fun setEpisodeContext(id: Long, episode: Long, context: EpisodeContext) =
+        dao.setEpisodeContext(id, episode, context.name)
 
     suspend fun finish(id: Long, nowMs: Long) = dao.updateEnd(id, nowMs)
 

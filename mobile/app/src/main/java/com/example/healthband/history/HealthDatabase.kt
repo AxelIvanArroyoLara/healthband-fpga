@@ -1,12 +1,17 @@
 package com.example.healthband.history
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
 /** Mantiene una única base privada por proceso de la aplicación. */
-@Database(entities = [SessionEntity::class, SampleEntity::class], version = 1)
+@Database(
+    entities = [SessionEntity::class, SampleEntity::class, EpisodeEntity::class],
+    version = 2,
+    autoMigrations = [AutoMigration(from = 1, to = 2)]
+)
 abstract class HealthDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
 

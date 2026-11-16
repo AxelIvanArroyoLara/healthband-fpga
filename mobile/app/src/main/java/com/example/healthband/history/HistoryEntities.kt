@@ -1,5 +1,6 @@
 package com.example.healthband.history
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -11,7 +12,8 @@ data class SessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val startedAtMs: Long,
     val endedAtMs: Long,
-    val simulated: Boolean
+    val simulated: Boolean,
+    @ColumnInfo(defaultValue = "0") val declaredRest: Boolean = false
 )
 
 /** Lectura con calidad válida. Una interrupción inicia un segmento nuevo de la gráfica. */
@@ -33,4 +35,35 @@ data class SampleEntity(
     val quality: Int,
     val receivedAtMs: Long,
     val startsSegment: Boolean
+)
+
+/** Episodio confirmado y anotación opcional del usuario. */
+@Entity(
+    tableName = "episodes",
+    primaryKeys = ["sessionId", "startedElapsedMs"],
+    foreignKeys = [ForeignKey(
+        entity = SessionEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["sessionId"],
+        onDelete = ForeignKey.CASCADE
+    )]
+)
+data class EpisodeEntity(
+    val sessionId: Long,
+    val startedElapsedMs: Long,
+    val startedAtMs: Long,
+    val durationMs: Long,
+    val peakBpm: Int,
+    val baselineBpm: Double,
+    val context: String? = null
+)
+
+/** Campos calculados por el detector que pueden cambiar durante un episodio. */
+data class EpisodeUpdate(
+    val sessionId: Long,
+    val startedElapsedMs: Long,
+    val startedAtMs: Long,
+    val durationMs: Long,
+    val peakBpm: Int,
+    val baselineBpm: Double
 )

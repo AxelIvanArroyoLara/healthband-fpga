@@ -25,7 +25,7 @@ import com.example.healthband.ble.blePermissions
 
 /** Configura los UUID y permite elegir un periférico sin almacenar su dirección. */
 @Composable
-fun BleControls(viewModel: HealthViewModel, visible: Boolean) {
+fun BleControls(viewModel: HealthViewModel, visible: Boolean, declaredRest: Boolean) {
     val scan by viewModel.bleScanState.collectAsStateWithLifecycle()
     var service by rememberSaveable { mutableStateOf("") }
     var characteristic by rememberSaveable { mutableStateOf("") }
@@ -75,7 +75,7 @@ fun BleControls(viewModel: HealthViewModel, visible: Boolean) {
                 }
                 if (config != null) {
                     scan.devices.forEach { device ->
-                        TextButton(onClick = { viewModel.connectBle(device, config) }) {
+                        TextButton(onClick = { viewModel.connectBle(device, config, declaredRest) }) {
                             Text("${device.name} · ${device.address}")
                         }
                     }

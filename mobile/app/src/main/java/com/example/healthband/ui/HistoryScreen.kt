@@ -13,6 +13,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.healthband.analysis.EpisodeContext
+import com.example.healthband.history.HistoryEpisode
 import com.example.healthband.history.HistoryRepository
 import com.example.healthband.history.SessionSummary
 import java.text.NumberFormat
@@ -24,6 +26,7 @@ fun HistoryScreen(activeSession: Boolean, viewModel: HistoryViewModel = viewMode
     val selection by viewModel.selectedPage.collectAsStateWithLifecycle()
     val details by viewModel.details.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
+    val episodes by viewModel.episodes.collectAsStateWithLifecycle()
     var confirm by rememberSaveable { mutableStateOf<Long?>(null) }
     val selected = sessions.firstOrNull { it.id == selection?.sessionId }
     BackHandler(enabled = selection != null) { viewModel.closeDetails() }
@@ -79,6 +82,15 @@ fun HistoryScreen(activeSession: Boolean, viewModel: HistoryViewModel = viewMode
                     }
                 }
             }
+            val selectedEpisodes = episodes?.takeIf { it.sessionId == selected.id }?.episodes.orEmpty()
+            if (selectedEpisodes.isNotEmpty()) item {
+                Text("Episodios de frecuencia inusual", style = MaterialTheme.typography.titleMedium)
+            }
+            items(selectedEpisodes, key = { it.progress.startedElapsedMs }) { episode ->
+                EpisodeCard(episode) { context ->
+                    viewModel.annotate(selected.id, episode.progress.startedElapsedMs, context)
+                }
+            }
             item {
                 TextButton(enabled = !activeSession, onClick = { confirm = selected.id }) { Text("Eliminar sesión") }
             }
@@ -107,10 +119,44 @@ private fun SessionInfo(session: SessionSummary) {
     val flags = DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_YEAR
     val interval = DateUtils.formatDateRange(context, session.startedAtMs, session.endedAtMs, flags)
     Text(if (session.simulated) "Simulador" else "Bluetooth LE", style = MaterialTheme.typography.titleMedium)
+    if (session.declaredRest) Text("Reposo declarado")
     Text(interval)
     Text("${session.validCount} lecturas válidas")
     session.averageBpm?.let {
-        val format = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1 }
-        Text("Promedio ${format.format(it)} · Mín. ${session.minBpm} · Máx. ${session.maxBpm} BPM")
+        Text("Promedio ${formatBpm(it)} · Mín. ${session.minBpm} · Máx. ${session.maxBpm} BPM")
     }
 }
+
+/** Presenta el episodio y permite registrar el contexto elegido por la persona. */
+@Composable
+private fun EpisodeCard(episode: HistoryEpisode, annotate: (EpisodeContext) -> Unit) {
+    val context = LocalContext.current
+    val progress = episode.progress
+    var open by remember { mutableStateOf(false) }
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(DateUtils.formatDateTime(
+                context, progress.startedAtMs, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME
+            ))
+            Text("Duración · ${progress.durationMs / 1000} s")
+            Text("Pico · ${progress.peakBpm} BPM · +${formatBpm(progress.peakBpm - progress.baselineBpm)} BPM sobre la referencia")
+            Box {
+                TextButton(onClick = { open = true }) {
+                    Text(episode.context?.let { "Contexto · ${it.label}" } ?: "Añadir contexto")
+                }
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    EpisodeContext.entries.forEach { option ->
+                        DropdownMenuItem(text = { Text(option.label) }, onClick = {
+                            open = false
+                            annotate(option)
+                        })
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Redondea valores derivados para mostrarlos en las pantallas de monitoreo. */
+internal fun formatBpm(value: Double): String =
+    NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1 }.format(value)

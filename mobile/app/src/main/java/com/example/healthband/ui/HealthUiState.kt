@@ -1,5 +1,8 @@
 package com.example.healthband.ui
 
+import com.example.healthband.analysis.AnomalyReading
+import com.example.healthband.analysis.AnomalyStatus
+import com.example.healthband.analysis.Baseline
 import com.example.healthband.model.Measurement
 import com.example.healthband.protocol.Hb1Parser
 import com.example.healthband.protocol.ParseResult
@@ -24,6 +27,8 @@ data class HealthUiState(
     val measurement: Measurement? = null,
     val recentBpm: List<Int?> = emptyList(),
     val ageMs: Long? = null,
+    val baseline: Baseline? = null,
+    val anomaly: AnomalyReading = AnomalyReading(AnomalyStatus.NO_DATA),
     val receivedCount: Int = 0,
     val errorCount: Int = 0,
     val lastError: String? = null,
@@ -35,7 +40,12 @@ data class HealthUiState(
         if (!isRunning || status == ReadingStatus.CONNECTING) return this
         val age = lastAtMs?.let { now - it }
         return if ((age ?: (now - startedAt)) >= timeoutMs) {
-            copy(status = ReadingStatus.STALE, measurement = null, ageMs = age)
+            copy(
+                status = ReadingStatus.STALE,
+                measurement = null,
+                ageMs = age,
+                anomaly = AnomalyReading(AnomalyStatus.NO_DATA)
+            )
         } else {
             copy(ageMs = age)
         }

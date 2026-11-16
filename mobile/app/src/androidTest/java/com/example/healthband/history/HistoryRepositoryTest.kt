@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.example.healthband.analysis.AnomalyConfig
+import com.example.healthband.analysis.EpisodeContext
+import com.example.healthband.analysis.EpisodeProgress
 import com.example.healthband.model.Measurement
 import java.util.UUID
 import kotlinx.coroutines.flow.first
@@ -49,6 +52,43 @@ class HistoryRepositoryTest {
             }
         } finally {
             context.deleteDatabase(name)
+        }
+        Unit
+    }
+
+    @Test
+    fun baselineExcludesOtherSourcesAndEpisodesAndPreservesAnnotations() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val database = Room.inMemoryDatabaseBuilder(context, HealthDatabase::class.java).build()
+        try {
+            val repository = HistoryRepository(database)
+            val config = AnomalyConfig(minimumSessionSamples = 2)
+            val measure = Measurement(1, 70, 880, true, 200)
+            suspend fun restSession(simulated: Boolean): Long {
+                val id = repository.begin(simulated, 100, declaredRest = true)
+                repeat(2) { repository.record(id, measure, startsSegment = it == 0) }
+                repository.finish(id, 300)
+                return id
+            }
+            val episodeSession = restSession(true)
+            restSession(true)
+            restSession(false)
+            assertNull(repository.baseline(true, config))
+            restSession(true)
+            assertEquals(70.0, requireNotNull(repository.baseline(true, config)).bpm, 0.0)
+
+            val episode = EpisodeProgress(400, 200, 15_000, 110, 70.0)
+            repository.record(episodeSession, measure, false, episode)
+            repository.setEpisodeContext(episodeSession, 400, EpisodeContext.ACTIVITY)
+            repository.record(episodeSession, measure, false, episode.copy(durationMs = 16_000))
+            assertNull(repository.baseline(true, config))
+            val saved = repository.episodes(episodeSession).first().single()
+            assertEquals(16_000L, saved.progress.durationMs)
+            assertEquals(EpisodeContext.ACTIVITY, saved.context)
+            repository.delete(episodeSession)
+            assertTrue(repository.episodes(episodeSession).first().isEmpty())
+        } finally {
+            database.close()
         }
         Unit
     }

@@ -5,8 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.healthband.analysis.AnomalyStatus
 
 /**
  * Pantalla principal de HealthBand.
@@ -30,6 +31,7 @@ fun HealthScreen(
 
     // Observa el estado respetando el ciclo de vida de Android.
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var declaredRest by rememberSaveable { mutableStateOf(false) }
 
     // Obtiene la última medición para facilitar su presentación.
     val measurement = state.measurement
@@ -198,15 +200,48 @@ fun HealthScreen(
             }
 
             if (state.isRunning) {
+                AnalysisCard(state)
                 Button(onClick = viewModel::stopSession, modifier = Modifier.fillMaxWidth()) {
                     Text(if (state.isBle) "Desconectar" else "Detener simulación")
                 }
             } else {
-                Button(onClick = viewModel::startSimulation, modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = declaredRest, onCheckedChange = { declaredRest = it })
+                    Text("Registrar como sesión de reposo")
+                }
+                Button(
+                    onClick = { viewModel.startSimulation(declaredRest) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text("Iniciar simulación")
                 }
+                TextButton(onClick = { viewModel.startSimulation(declaredRest = false, sustainedDemo = true) }) {
+                    Text("Simular elevación sostenida")
+                }
             }
-            BleControls(viewModel, visible = !state.isRunning)
+            BleControls(viewModel, visible = !state.isRunning, declaredRest = declaredRest)
+        }
+    }
+}
+
+/** Presenta la calibración y el resultado experimental de la lectura actual. */
+@Composable
+private fun AnalysisCard(state: HealthUiState) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Análisis experimental", style = MaterialTheme.typography.titleMedium)
+            val baseline = state.baseline
+            if (baseline == null) {
+                Text("Calibración pendiente. Se requieren al menos tres sesiones de reposo de esta fuente.")
+            } else {
+                Text("Referencia de reposo · ${formatBpm(baseline.bpm)} BPM · ${baseline.sessions} sesiones")
+            }
+            if (state.anomaly.status != AnomalyStatus.INSUFFICIENT || baseline != null) {
+                Text(state.anomaly.status.label)
+            }
+            state.anomaly.episode?.let { episode ->
+                Text("${episode.durationMs / 1000} s · Pico +" + formatBpm(episode.peakBpm - episode.baselineBpm) + " BPM")
+            }
         }
     }
 }
