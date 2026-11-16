@@ -46,6 +46,7 @@ fun HealthScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .statusBarsPadding()
                         .padding(20.dp)
                 )
             }
@@ -145,14 +146,15 @@ fun HealthScreen(
                         fontWeight = FontWeight.Bold
                     )
 
-                    Text(
-                        text = state.status
-                    )
+                    Text(state.status.label)
+                    Text(state.ageMs?.let { "Última trama aceptada hace ${it / 1000} s" }
+                        ?: "Sin tramas recientes")
 
                     // La calidad depende de la validez del mensaje.
                     Text(
                         text = "Calidad: " +
                                 when {
+                                    state.status == ReadingStatus.STALE -> "Datos obsoletos"
                                     measurement == null -> "Sin datos"
                                     measurement.isValid -> "Válida"
                                     else -> "Inválida"
@@ -173,6 +175,13 @@ fun HealthScreen(
                         text = "Errores detectados: " +
                                 state.errorCount
                     )
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("BPM recientes", style = MaterialTheme.typography.titleMedium)
+                    BpmChart(state.recentBpm)
                 }
             }
 

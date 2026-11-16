@@ -1,0 +1,65 @@
+package com.example.healthband.ui
+
+import com.example.healthband.model.Measurement
+import com.example.healthband.protocol.Hb1Parser
+import com.example.healthband.protocol.ParseResult
+
+/** Estado de la lectura actual, independiente de los mensajes rechazados. */
+enum class ReadingStatus(val label: String) {
+    STOPPED("Simulador detenido"),
+    WAITING("Esperando mediciones"),
+    VALID("Medición válida"),
+    INVALID("Medición inválida"),
+    STALE("Datos obsoletos"),
+    ERROR("Error de comunicación")
+}
+
+/** Estado observable de una sesión de adquisición. */
+data class HealthUiState(
+    val isRunning: Boolean = false,
+    val status: ReadingStatus = ReadingStatus.STOPPED,
+    val measurement: Measurement? = null,
+    val recentBpm: List<Int?> = emptyList(),
+    val ageMs: Long? = null,
+    val receivedCount: Int = 0,
+    val errorCount: Int = 0,
+    val lastError: String? = null,
+    private val lastSequence: Long? = null,
+    private val lastAtMs: Long? = null
+) {
+    /** Actualiza la edad y expira la lectura mediante tiempo monotónico. */
+    fun tick(now: Long, startedAt: Long, timeoutMs: Long): HealthUiState {
+        if (!isRunning) return this
+        val age = lastAtMs?.let { now - it }
+        return if ((age ?: (now - startedAt)) >= timeoutMs) {
+            copy(status = ReadingStatus.STALE, measurement = null, ageMs = age)
+        } else {
+            copy(ageMs = age)
+        }
+    }
+
+    /** Aplica una trama aceptada o registra el rechazo sin reiniciar su antigüedad. */
+    fun receive(result: ParseResult, now: Long, timeoutMs: Long): HealthUiState = when (result) {
+        is ParseResult.Error -> copy(errorCount = errorCount + 1, lastError = result.reason)
+        is ParseResult.Success -> {
+            val reading = result.measurement
+            val gap = lastSequence?.let { Hb1Parser.sequenceDistance(it, reading.sequence) > 1 } == true ||
+                lastAtMs?.let { now - it >= timeoutMs } == true
+            val bpm = reading.bpm.takeIf { reading.isValid }
+            val points = if (gap && recentBpm.lastOrNull() != null && bpm != null) {
+                recentBpm + listOf(null, bpm)
+            } else {
+                recentBpm + bpm
+            }
+            copy(
+                measurement = reading,
+                status = if (reading.isValid) ReadingStatus.VALID else ReadingStatus.INVALID,
+                recentBpm = points.takeLast(60),
+                ageMs = 0,
+                receivedCount = receivedCount + 1,
+                lastSequence = reading.sequence,
+                lastAtMs = now
+            )
+        }
+    }
+}
