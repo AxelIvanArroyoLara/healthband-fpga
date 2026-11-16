@@ -71,7 +71,7 @@ fun HealthScreen(
             )
 
             Text(
-                text = "Modo simulación",
+                text = if (state.isBle) "Fuente Bluetooth LE" else "Fuente simulador",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -198,39 +198,16 @@ fun HealthScreen(
                 )
             }
 
-            // --- Controles de simulación ---
-
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-
-                    // El botón alterna entre iniciar y detener.
-                    if (state.isRunning) {
-                        viewModel.stopSimulation()
-                    } else {
-                        viewModel.startSimulation()
-                    }
+            if (state.isRunning) {
+                Button(onClick = viewModel::stopSession, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (state.isBle) "Desconectar" else "Detener simulación")
                 }
-            ) {
-
-                Text(
-                    text = if (state.isRunning) {
-                        "Detener simulación"
-                    } else {
-                        "Iniciar simulación"
-                    }
-                )
+            } else {
+                Button(onClick = viewModel::startSimulation, modifier = Modifier.fillMaxWidth()) {
+                    Text("Iniciar simulación")
+                }
             }
-
-            // --- Aviso de uso experimental ---
-
-            Text(
-                text = "Datos simulados para desarrollo. " +
-                        "No representan mediciones médicas.",
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            BleControls(viewModel, visible = !state.isRunning)
         }
     }
 }

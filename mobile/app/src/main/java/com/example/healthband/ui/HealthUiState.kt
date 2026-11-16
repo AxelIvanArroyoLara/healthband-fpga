@@ -7,6 +7,8 @@ import com.example.healthband.protocol.ParseResult
 /** Estado de la lectura actual, independiente de los mensajes rechazados. */
 enum class ReadingStatus(val label: String) {
     STOPPED("Simulador detenido"),
+    CONNECTING("Conectando por Bluetooth"),
+    DISCONNECTED("Dispositivo BLE desconectado"),
     WAITING("Esperando mediciones"),
     VALID("Medición válida"),
     INVALID("Medición inválida"),
@@ -17,6 +19,7 @@ enum class ReadingStatus(val label: String) {
 /** Estado observable de una sesión de adquisición. */
 data class HealthUiState(
     val isRunning: Boolean = false,
+    val isBle: Boolean = false,
     val status: ReadingStatus = ReadingStatus.STOPPED,
     val measurement: Measurement? = null,
     val recentBpm: List<Int?> = emptyList(),
@@ -29,7 +32,7 @@ data class HealthUiState(
 ) {
     /** Actualiza la edad y expira la lectura mediante tiempo monotónico. */
     fun tick(now: Long, startedAt: Long, timeoutMs: Long): HealthUiState {
-        if (!isRunning) return this
+        if (!isRunning || status == ReadingStatus.CONNECTING) return this
         val age = lastAtMs?.let { now - it }
         return if ((age ?: (now - startedAt)) >= timeoutMs) {
             copy(status = ReadingStatus.STALE, measurement = null, ageMs = age)
