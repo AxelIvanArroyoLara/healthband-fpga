@@ -18,19 +18,21 @@ import com.example.healthband.data.MeasurementSource
 import com.example.healthband.data.SimulatedMeasurementSource
 import com.example.healthband.history.HealthDatabase
 import com.example.healthband.history.HistoryRepository
+import com.example.healthband.history.SessionHistory
+import com.example.healthband.history.SessionHistoryWriter
 import com.example.healthband.model.Measurement
 import com.example.healthband.protocol.Hb1Parser
 import com.example.healthband.protocol.ParseResult
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -43,7 +45,7 @@ import kotlinx.coroutines.sync.withLock
 class HealthViewModel internal constructor(
     application: Application,
     private val staleTimeoutMs: Long,
-    private val history: HistoryRepository,
+    private val history: SessionHistory,
     private val monotonicNowMs: () -> Long
 ) : AndroidViewModel(application) {
     constructor(application: Application) : this(
@@ -55,7 +57,7 @@ class HealthViewModel internal constructor(
     private val anomalyConfig = AnomalyConfig()
     private val state = MutableStateFlow(HealthUiState())
     val uiState = state.asStateFlow()
-    private var session: Job? = null
+    private var currentRun: AcquisitionRun? = null
     private var scanJob: Job? = null
     private val scanState = MutableStateFlow(BleScanState())
     val bleScanState = scanState.asStateFlow()
@@ -116,43 +118,90 @@ class HealthViewModel internal constructor(
         if (state.value.isRunning) return
         val scan = scanJob
         scan?.cancel()
+        val run = AcquisitionRun()
+        currentRun = run
         state.value = HealthUiState(
             isRunning = true,
             isBle = isBle,
-            status = if (isBle) ReadingStatus.CONNECTING else ReadingStatus.WAITING
+            status = if (isBle) ReadingStatus.CONNECTING else ReadingStatus.WAITING,
+            historyBusy = state.value.historyBusy
         )
-        session = viewModelScope.launch {
+        run.pipeline = viewModelScope.launch {
             scan?.join()
-            acquisition.withLock { collectSession(isBle, declaredRest, source) }
+            acquisition.withLock { collectSession(run, isBle, declaredRest, source) }
         }
     }
 
-    /** Guarda el historial dentro del ciclo de vida de la adquisición activa. */
+    /** Ejecuta la captura y el historial como hijos de una adquisición, con un cierre ordenado. */
     private suspend fun collectSession(
+        run: AcquisitionRun,
         isBle: Boolean,
         declaredRest: Boolean,
         source: (() -> Unit) -> MeasurementSource
+    ) = coroutineScope {
+        val writer = SessionHistoryWriter(history, !isBle, declaredRest) { error ->
+            updateRun(run) { it.copy(storageError = error) }
+        }
+        var detector = AnomalyDetector(null, anomalyConfig)
+        state.update { it.copy(historyBusy = true) }
+
+        val persistence = launch {
+            writer.save(
+                anomalyConfig,
+                onBaseline = { baseline ->
+                    detector = AnomalyDetector(baseline, anomalyConfig)
+                    updateRun(run) { it.copy(baseline = baseline) }
+                },
+                onStored = { updateRun(run) { it.copy(persistedCount = it.persistedCount + 1) } }
+            )
+        }
+        val capture = launch(start = CoroutineStart.LAZY) {
+            collectReadings(run, isBle, source, writer) { detector }
+        }
+        run.capture = capture
+        try {
+            capture.join()
+            writer.close(System.currentTimeMillis())
+            // La fuente ya está cerrada. Una escritura suspendida no retiene el siguiente inicio indefinidamente.
+            val saved = withTimeoutOrNull(5_000) {
+                persistence.join()
+                true
+            }
+            if (saved == null) {
+                updateRun(run) { it.copy(storageError = "Se agotó el tiempo para guardar el historial pendiente.") }
+                persistence.cancelAndJoin()
+            }
+        } finally {
+            writer.close(System.currentTimeMillis())
+            state.update { it.copy(historyBusy = false) }
+        }
+    }
+
+    /** Interpreta y publica las lecturas antes de entregarlas al escritor. */
+    private suspend fun collectReadings(
+        run: AcquisitionRun,
+        isBle: Boolean,
+        source: (() -> Unit) -> MeasurementSource,
+        writer: SessionHistoryWriter,
+        detector: () -> AnomalyDetector
     ) {
         var startedAt = monotonicNowMs()
-        var sessionId: Long? = null
         var previous: Measurement? = null
         var previousAt = startedAt
-        val repository = MeasurementRepository(source {
-            startedAt = monotonicNowMs()
-            state.update { it.copy(status = ReadingStatus.WAITING) }
-        })
         try {
-            val baseline = history.baseline(!isBle, anomalyConfig)
-            val detector = AnomalyDetector(baseline, anomalyConfig)
-            state.update { it.copy(baseline = baseline) }
-            startedAt = monotonicNowMs()
+            val repository = MeasurementRepository(source {
+                startedAt = monotonicNowMs()
+                updateRun(run) { it.copy(status = ReadingStatus.WAITING) }
+            })
             coroutineScope {
                 val ticker = launch {
                     while (true) {
                         delay(200)
-                        val ticked = state.value.tick(monotonicNowMs(), startedAt, staleTimeoutMs)
-                        if (ticked.status == ReadingStatus.STALE) detector.noData()
-                        state.value = ticked
+                        updateRun(run) {
+                            val ticked = it.tick(monotonicNowMs(), startedAt, staleTimeoutMs)
+                            if (ticked.status == ReadingStatus.STALE) detector().noData()
+                            ticked
+                        }
                     }
                 }
                 try {
@@ -160,58 +209,55 @@ class HealthViewModel internal constructor(
                         val now = monotonicNowMs()
                         if (result is ParseResult.Success) {
                             val measurement = result.measurement
-                            val id = sessionId ?: history.begin(
-                                !isBle, measurement.receivedAtMs, declaredRest
-                            ).also { sessionId = it }
                             val prior = previous
                             val startsSegment = prior == null || !prior.isValid ||
                                 Hb1Parser.sequenceDistance(prior.sequence, measurement.sequence) != 1L ||
                                 now - previousAt >= staleTimeoutMs
-                            val analysis = detector.receive(
+                            val analysis = detector().receive(
                                 measurement.bpm.takeIf { measurement.isValid }, now, measurement.receivedAtMs
                             )
-                            history.record(id, measurement, startsSegment, analysis.episode)
                             previous = measurement
                             previousAt = now
-                            state.update { it.receive(result, now, staleTimeoutMs).copy(anomaly = analysis) }
+                            updateRun(run) { it.receive(result, now, staleTimeoutMs).copy(anomaly = analysis) }
+                            if (measurement.isValid) writer.enqueue(measurement, startsSegment, analysis.episode)
                         } else {
-                            state.update { it.receive(result, now, staleTimeoutMs) }
+                            updateRun(run) { it.receive(result, now, staleTimeoutMs) }
                         }
                     }
                 } finally {
                     ticker.cancel()
                 }
             }
-            clearReading(if (isBle) ReadingStatus.DISCONNECTED else ReadingStatus.STOPPED)
+            if (currentRun === run) clearReading(if (isBle) ReadingStatus.DISCONNECTED else ReadingStatus.STOPPED)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: BleFailure) {
-            clearReading(
+            if (currentRun === run) clearReading(
                 if (failure.disconnected) ReadingStatus.DISCONNECTED else ReadingStatus.ERROR,
                 failure.message
             )
         } catch (_: Exception) {
-            clearReading(ReadingStatus.ERROR, "Se interrumpió la adquisición o la escritura del historial")
-        } finally {
-            // El cierre es breve y conserva la fecha incluso si el usuario detiene la adquisición.
-            sessionId?.let { id ->
-                withContext(NonCancellable) {
-                    try {
-                        history.finish(id, System.currentTimeMillis())
-                    } catch (_: Exception) {
-                        state.update {
-                            if (it.isRunning) it else it.copy(lastError = "No se pudo confirmar el cierre del historial")
-                        }
-                    }
-                }
-            }
+            if (currentRun === run) clearReading(ReadingStatus.ERROR, "Se interrumpió la fuente de mediciones")
         }
     }
 
-    /** Cancela la adquisición y retira los valores actuales conservando la gráfica. */
+    /** Retira la lectura de inmediato y deja al escritor confirmar su cola dentro del plazo de cierre. */
     fun stopSession() {
-        session?.cancel()
+        if (!state.value.isRunning) return
+        val run = currentRun
+        val capture = run?.capture
+        if (capture != null) capture.cancel() else run?.pipeline?.cancel()
         clearReading(if (state.value.isBle) ReadingStatus.DISCONNECTED else ReadingStatus.STOPPED)
+    }
+
+    private fun updateRun(run: AcquisitionRun, transform: (HealthUiState) -> HealthUiState) {
+        if (currentRun === run) state.update(transform)
+    }
+
+    /** Separa la captura cancelable del cierre del historial y de los inicios todavía en espera. */
+    private class AcquisitionRun {
+        var pipeline: Job? = null
+        var capture: Job? = null
     }
 
     private fun clearReading(status: ReadingStatus, error: String? = null) {

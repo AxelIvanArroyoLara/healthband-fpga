@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
                             Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Historial") })
                         }
                         screens.SaveableStateProvider(tab) {
-                            if (tab == 0) HealthScreen(monitor) else HistoryScreen(activeSession = state.isRunning)
+                            if (tab == 0) HealthScreen(monitor) else HistoryScreen(activeSession = state.isRunning || state.historyBusy)
                         }
                     }
                 }

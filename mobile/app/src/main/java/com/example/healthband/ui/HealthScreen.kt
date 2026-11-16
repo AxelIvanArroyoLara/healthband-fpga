@@ -172,6 +172,8 @@ fun HealthScreen(
                                 state.receivedCount
                     )
 
+                    Text("Lecturas guardadas: ${state.persistedCount}")
+
                     Text(
                         text = "Errores detectados: " +
                                 state.errorCount
@@ -189,6 +191,13 @@ fun HealthScreen(
             // --- Visualización de errores ---
 
             // Solo presenta el mensaje cuando existe un error.
+            state.storageError?.let { error ->
+                Text("Historial · $error", color = MaterialTheme.colorScheme.error)
+            }
+            if (!state.isRunning && state.historyBusy) {
+                Text("Finalizando el historial…")
+            }
+
             state.lastError?.let { error ->
 
                 Text(

@@ -29,7 +29,7 @@ data class HistorySample(val bpm: Int, val startsSegment: Boolean)
 data class HistoryEpisode(val progress: EpisodeProgress, val context: EpisodeContext?)
 
 /** Persiste el historial sin acoplar la interfaz a las entidades Room. */
-class HistoryRepository(private val database: HealthDatabase) {
+class HistoryRepository(private val database: HealthDatabase) : SessionHistory {
     private val dao = database.historyDao()
 
     fun sessions(): Flow<List<SessionSummary>> = dao.sessions()
@@ -45,39 +45,58 @@ class HistoryRepository(private val database: HealthDatabase) {
             startedAtMs = nowMs, endedAtMs = nowMs, simulated = simulated, declaredRest = declaredRest
         ))
 
-    /** Actualiza la lectura y el cierre recuperable en una sola transacción. */
-    suspend fun record(
-        id: Long,
+    override suspend fun recordFirst(
+        simulated: Boolean,
+        declaredRest: Boolean,
         measurement: Measurement,
-        startsSegment: Boolean,
-        episode: EpisodeProgress? = null
-    ) {
-        val bpm = measurement.bpm ?: return
-        val ibi = measurement.ibiMs ?: return
-        if (!measurement.isValid) return
-        database.withTransaction {
-            dao.insertSample(
-                SampleEntity(
-                    sessionId = id,
-                    bpm = bpm,
-                    ibiMs = ibi,
-                    quality = 1,
-                    receivedAtMs = measurement.receivedAtMs,
-                    startsSegment = startsSegment
-                )
-            )
-            if (episode != null) {
-                dao.upsertEpisode(EpisodeUpdate(
-                    id, episode.startedElapsedMs, episode.startedAtMs,
-                    episode.durationMs, episode.peakBpm, episode.baselineBpm
-                ))
-            }
-            dao.updateEnd(id, measurement.receivedAtMs)
+        episode: EpisodeProgress?
+    ): Long {
+        require(measurement.isValid && measurement.bpm != null && measurement.ibiMs != null)
+        return database.withTransaction {
+            val id = begin(simulated, measurement.receivedAtMs, declaredRest)
+            writeSample(id, measurement, startsSegment = true, episode)
+            id
         }
     }
 
+    /** Actualiza la lectura, el episodio y el cierre recuperable en una sola transacción. */
+    override suspend fun record(
+        id: Long,
+        measurement: Measurement,
+        startsSegment: Boolean,
+        episode: EpisodeProgress?
+    ) {
+        if (!measurement.isValid || measurement.bpm == null || measurement.ibiMs == null) return
+        database.withTransaction { writeSample(id, measurement, startsSegment, episode) }
+    }
+
+    private suspend fun writeSample(
+        id: Long,
+        measurement: Measurement,
+        startsSegment: Boolean,
+        episode: EpisodeProgress?
+    ) {
+        dao.insertSample(
+            SampleEntity(
+                sessionId = id,
+                bpm = requireNotNull(measurement.bpm),
+                ibiMs = requireNotNull(measurement.ibiMs),
+                quality = 1,
+                receivedAtMs = measurement.receivedAtMs,
+                startsSegment = startsSegment
+            )
+        )
+        if (episode != null) {
+            dao.upsertEpisode(EpisodeUpdate(
+                id, episode.startedElapsedMs, episode.startedAtMs,
+                episode.durationMs, episode.peakBpm, episode.baselineBpm
+            ))
+        }
+        dao.updateEnd(id, measurement.receivedAtMs)
+    }
+
     /** Calcula la referencia con sesiones de reposo de la misma fuente y sin episodios confirmados. */
-    suspend fun baseline(simulated: Boolean, config: AnomalyConfig): Baseline? = database.withTransaction {
+    override suspend fun baseline(simulated: Boolean, config: AnomalyConfig): Baseline? = database.withTransaction {
         val ids = dao.baselineSessionIds(simulated, config.minimumSessionSamples)
         val sampleLimit = maxOf(300, config.minimumSessionSamples)
         Baseline.calculate(ids.map { dao.baselineSamples(it, sampleLimit) }, config)
@@ -95,7 +114,7 @@ class HistoryRepository(private val database: HealthDatabase) {
     suspend fun setEpisodeContext(id: Long, episode: Long, context: EpisodeContext) =
         dao.setEpisodeContext(id, episode, context.name)
 
-    suspend fun finish(id: Long, nowMs: Long) = dao.updateEnd(id, nowMs)
+    override suspend fun finish(id: Long, nowMs: Long) = dao.updateEnd(id, nowMs)
 
     suspend fun delete(id: Long) = dao.delete(id)
 
