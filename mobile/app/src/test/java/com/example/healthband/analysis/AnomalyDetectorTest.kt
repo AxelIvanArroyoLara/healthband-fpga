@@ -53,4 +53,31 @@ class AnomalyDetectorTest {
         assertEquals(AnomalyStatus.BRIEF, detector.receive(100, 42_000, 0).status)
         assertEquals(AnomalyStatus.BRIEF, detector.receive(100, 59_000, 0).status)
     }
+
+    @Test
+    fun absoluteRelativeAndMadThresholdsEachCanDominate() {
+        val absolute = AnomalyDetector(Baseline(60.0, 0.0, 3))
+        assertEquals(AnomalyStatus.USUAL, absolute.receive(71, 0, 0).status)
+        assertEquals(AnomalyStatus.BRIEF, absolute.receive(72, 1_000, 0).status)
+        val relative = AnomalyDetector(Baseline(100.0, 0.0, 3))
+        assertEquals(AnomalyStatus.USUAL, relative.receive(114, 0, 0).status)
+        assertEquals(AnomalyStatus.BRIEF, relative.receive(115, 1_000, 0).status)
+        val dispersed = AnomalyDetector(Baseline(75.0, 5.0, 3))
+        assertEquals(AnomalyStatus.USUAL, dispersed.receive(97, 0, 0).status)
+        assertEquals(AnomalyStatus.BRIEF, dispersed.receive(98, 1_000, 0).status)
+    }
+
+    @Test
+    fun aNewSessionRecalculatesBaselineAndDoesNotInheritAnElevatedWindow() {
+        val original = AnomalyDetector(baseline)
+        repeat(15) { original.receive(100, it * 1_000L, 0) }
+        val reconnected = AnomalyDetector(baseline)
+        assertEquals(AnomalyStatus.BRIEF, reconnected.receive(100, 15_000, 0).status)
+        assertEquals(AnomalyStatus.SUSTAINED, original.receive(100, 15_000, 0).status)
+
+        val rest = listOf(List(20) { 89 }, List(20) { 90 }, List(20) { 91 })
+        val updated = Baseline.calculate(rest, config)
+        assertEquals(Baseline(90.0, 1.0, 3), updated)
+        assertEquals(AnomalyStatus.USUAL, AnomalyDetector(updated).receive(100, 0, 0).status)
+    }
 }

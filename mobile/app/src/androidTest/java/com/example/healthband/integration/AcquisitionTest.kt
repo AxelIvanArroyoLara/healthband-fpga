@@ -21,6 +21,7 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -286,7 +287,7 @@ class AcquisitionTest {
                 ): Long {
                     inWrite.complete(Unit)
                     try {
-                        kotlinx.coroutines.awaitCancellation()
+                        awaitCancellation()
                     } finally {
                         writeClosed.complete(Unit)
                     }
@@ -303,6 +304,72 @@ class AcquisitionTest {
             writeClosed.await()
             assertTrue(history.sessions().first().isEmpty())
             assertNull(monitor.uiState.value.storageError)
+        }
+    }
+
+    /** Un drenaje suspendido indefinidamente conserva solo las transacciones confirmadas. */
+    @Test
+    fun stopCancelsAnUnfinishedWriteAfterDrainTimeout() = runBlocking {
+        val inWrite = CompletableDeferred<Unit>()
+        val writeClosed = CompletableDeferred<Unit>()
+        withTestMonitor(historyFactory = { repository ->
+            object : SessionHistory by repository {
+                override suspend fun record(
+                    id: Long, measurement: Measurement, startsSegment: Boolean, episode: EpisodeProgress?
+                ) {
+                    inWrite.complete(Unit)
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        writeClosed.complete(Unit)
+                    }
+                }
+            }
+        }) { monitor, history, _, _ ->
+            val input = Channel<String>(4)
+            val sourceClosed = CompletableDeferred<Unit>()
+            startInput(monitor, input, sourceClosed)
+            input.send(frame(1, 75))
+            monitor.uiState.first { it.persistedCount == 1 }
+            input.send(frame(2, 80))
+            inWrite.await()
+            withContext(Dispatchers.Main) { monitor.stopSession() }
+            sourceClosed.await()
+            writeClosed.await()
+            val stopped = monitor.uiState.first { !it.historyBusy }
+            assertEquals(ReadingStatus.STOPPED, stopped.status)
+            assertNull(stopped.measurement)
+            assertTrue(stopped.storageError.orEmpty().contains("tiempo"))
+            assertEquals(1L, history.sessions().first().single().validCount)
+        }
+    }
+
+    /** El historial conserva discontinuidades entre muestras válidas con el esquema existente. */
+    @Test
+    fun historyBreaksAtInvalidQualitySequenceGapAndStaleReading() = runBlocking {
+        withTestMonitor { monitor, history, elapsed, _ ->
+            val input = Channel<String>(8)
+            startInput(monitor, input, CompletableDeferred())
+            input.send(frame(1, 70))
+            input.send(frame(2, 71))
+            input.send("HB1,SEQ=000003,BPM=000,IBI=0000,Q=0\n")
+            input.send(frame(4, 74))
+            input.send(frame(6, 76))
+            monitor.uiState.first { it.persistedCount == 4 }
+            elapsed.addAndGet(4_000)
+            monitor.uiState.first { it.status == ReadingStatus.STALE }
+            input.send(frame(7, 77))
+            input.send(frame(7, 90))
+            input.send(frame(8, 78))
+            monitor.uiState.first { it.persistedCount == 6 }
+            input.close()
+            monitor.uiState.first { !it.isRunning && !it.historyBusy }
+
+            val session = history.sessions().first().single()
+            val saved = history.samples(session.id, 0).first()
+            assertEquals(listOf(70, 71, 74, 76, 77, 78), saved.map { it.bpm })
+            assertEquals(listOf(true, false, true, true, true, false), saved.map { it.startsSegment })
+            assertEquals(1, monitor.uiState.value.errorCount)
         }
     }
 
