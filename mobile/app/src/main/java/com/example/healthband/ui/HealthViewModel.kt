@@ -38,15 +38,19 @@ import kotlinx.coroutines.sync.withLock
 /**
  * Coordina la sesión de adquisición y conserva su estado durante cambios de configuración.
  * @param staleTimeoutMs Tiempo sin tramas aceptadas antes de invalidar la lectura actual.
+ * @param monotonicNowMs Reloj de intervalos de la adquisición, independiente del reloj Unix.
  */
-class HealthViewModel(
+class HealthViewModel internal constructor(
     application: Application,
-    private val staleTimeoutMs: Long
+    private val staleTimeoutMs: Long,
+    private val history: HistoryRepository,
+    private val monotonicNowMs: () -> Long
 ) : AndroidViewModel(application) {
-    constructor(application: Application) : this(application, 4_000L)
+    constructor(application: Application) : this(
+        application, 4_000L, HistoryRepository(HealthDatabase.get(application)), SystemClock::elapsedRealtime
+    )
 
     private val discovery = BleDiscovery(application)
-    private val history = HistoryRepository(HealthDatabase.get(application))
     private val acquisition = Mutex()
     private val anomalyConfig = AnomalyConfig()
     private val state = MutableStateFlow(HealthUiState())
@@ -61,7 +65,7 @@ class HealthViewModel(
 
     /** Busca dispositivos durante diez segundos y mantiene una lista acotada. */
     fun scanBle() {
-        if (scanJob?.isActive == true || session?.isActive == true) return
+        if (scanJob?.isActive == true || state.value.isRunning) return
         scanState.value = BleScanState(scanning = true)
         scanJob = viewModelScope.launch {
             try {
@@ -103,13 +107,13 @@ class HealthViewModel(
             SimulatedMeasurementSource(sustainedDemo = sustainedDemo)
         }
 
-    private fun startSession(
+    /** Inicia la colección de una fuente y serializa el cierre de la sesión anterior. */
+    internal fun startSession(
         isBle: Boolean,
         declaredRest: Boolean,
         source: (() -> Unit) -> MeasurementSource
     ) {
-        val previous = session
-        if (previous?.isActive == true) return
+        if (state.value.isRunning) return
         val scan = scanJob
         scan?.cancel()
         state.value = HealthUiState(
@@ -129,31 +133,31 @@ class HealthViewModel(
         declaredRest: Boolean,
         source: (() -> Unit) -> MeasurementSource
     ) {
-        var startedAt = SystemClock.elapsedRealtime()
+        var startedAt = monotonicNowMs()
         var sessionId: Long? = null
         var previous: Measurement? = null
         var previousAt = startedAt
         val repository = MeasurementRepository(source {
-            startedAt = SystemClock.elapsedRealtime()
+            startedAt = monotonicNowMs()
             state.update { it.copy(status = ReadingStatus.WAITING) }
         })
         try {
             val baseline = history.baseline(!isBle, anomalyConfig)
             val detector = AnomalyDetector(baseline, anomalyConfig)
             state.update { it.copy(baseline = baseline) }
-            startedAt = SystemClock.elapsedRealtime()
+            startedAt = monotonicNowMs()
             coroutineScope {
                 val ticker = launch {
                     while (true) {
                         delay(200)
-                        val ticked = state.value.tick(SystemClock.elapsedRealtime(), startedAt, staleTimeoutMs)
+                        val ticked = state.value.tick(monotonicNowMs(), startedAt, staleTimeoutMs)
                         if (ticked.status == ReadingStatus.STALE) detector.noData()
                         state.value = ticked
                     }
                 }
                 try {
                     repository.measurements().collect { result ->
-                        val now = SystemClock.elapsedRealtime()
+                        val now = monotonicNowMs()
                         if (result is ParseResult.Success) {
                             val measurement = result.measurement
                             val id = sessionId ?: history.begin(
@@ -195,7 +199,9 @@ class HealthViewModel(
                     try {
                         history.finish(id, System.currentTimeMillis())
                     } catch (_: Exception) {
-                        state.update { it.copy(lastError = "No se pudo confirmar el cierre del historial") }
+                        state.update {
+                            if (it.isRunning) it else it.copy(lastError = "No se pudo confirmar el cierre del historial")
+                        }
                     }
                 }
             }
@@ -222,7 +228,6 @@ class HealthViewModel(
         }
     }
 }
-
 
 /** Estado de búsqueda de periféricos, separado de la recepción de mediciones. */
 data class BleScanState(

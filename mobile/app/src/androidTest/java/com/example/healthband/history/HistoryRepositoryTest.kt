@@ -11,6 +11,7 @@ import com.example.healthband.model.Measurement
 import java.util.UUID
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -89,6 +90,47 @@ class HistoryRepositoryTest {
             assertTrue(repository.episodes(episodeSession).first().isEmpty())
         } finally {
             database.close()
+        }
+        Unit
+    }
+
+    @Test
+    fun migrationFromVersionOnePreservesSessionsAndSamples() = runBlocking {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val name = "migration-${UUID.randomUUID()}.db"
+        val schemaFile = "com.example.healthband.history.HealthDatabase/1.json"
+        val schema = instrumentation.context.assets.open(schemaFile).bufferedReader().use {
+            JSONObject(it.readText()).getJSONObject("database")
+        }
+        try {
+            context.openOrCreateDatabase(name, Context.MODE_PRIVATE, null).use { sqlite ->
+                val entities = schema.getJSONArray("entities")
+                for (i in 0 until entities.length()) {
+                    val entity = entities.getJSONObject(i)
+                    val table = entity.getString("tableName")
+                    sqlite.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
+                    val indices = entity.optJSONArray("indices") ?: continue
+                    for (index in 0 until indices.length()) {
+                        sqlite.execSQL(indices.getJSONObject(index).getString("createSql").replace("\${TABLE_NAME}", table))
+                    }
+                }
+                val setup = schema.getJSONArray("setupQueries")
+                for (i in 0 until setup.length()) sqlite.execSQL(setup.getString(i))
+                sqlite.execSQL("INSERT INTO sessions VALUES (1, 100, 300, 1)")
+                sqlite.execSQL("INSERT INTO samples VALUES (1, 1, 75, 800, 1, 200, 1)")
+                sqlite.version = 1
+            }
+            withDatabase(context, name) { database ->
+                val repository = HistoryRepository(database)
+                val session = repository.sessions().first().single()
+                assertEquals(1L, session.validCount)
+                assertFalse(session.declaredRest)
+                assertEquals(75, repository.samples(session.id, 0).first().single().bpm)
+                assertTrue(repository.episodes(session.id).first().isEmpty())
+            }
+        } finally {
+            context.deleteDatabase(name)
         }
         Unit
     }

@@ -32,6 +32,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    // Las pruebas de migración reconstruyen la versión anterior desde el esquema exportado.
+    sourceSets.getByName("androidTest").assets.directories.add("schemas")
+
     buildFeatures {
         compose = true
     }

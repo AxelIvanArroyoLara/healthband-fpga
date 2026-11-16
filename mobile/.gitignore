@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Bases locales y archivos auxiliares de SQLite.
+*.db
+*.db-shm
+*.db-wal
+*.db-journal

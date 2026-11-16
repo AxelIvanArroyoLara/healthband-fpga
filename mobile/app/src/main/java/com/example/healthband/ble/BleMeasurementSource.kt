@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattConnectionSettings
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
@@ -87,8 +88,10 @@ class BleMeasurementSource(
                 if (descriptor.uuid != CCCD) return
                 if (status != BluetoothGatt.GATT_SUCCESS) {
                     close(BleFailure("El dispositivo rechazó la suscripción ($status)"))
-                } else if (subscribed.compareAndSet(false, true)) {
-                    trySend(null)
+                } else {
+                    synchronized(subscribed) {
+                        if (subscribed.compareAndSet(false, true)) trySend(null)
+                    }
                 }
             }
 
@@ -106,9 +109,12 @@ class BleMeasurementSource(
 
             private fun deliver(characteristic: BluetoothGattCharacteristic, bytes: ByteArray) {
                 if (characteristic.uuid != config.characteristic || characteristic.service.uuid != config.service) return
-                if (trySend(bytes.toString(Charsets.US_ASCII)).isFailure) {
-                    // La pérdida de bytes podría convertir fragmentos vecinos en una trama incorrecta.
-                    close(BleFailure("Se saturó la recepción BLE"))
+                synchronized(subscribed) {
+                    if (!subscribed.get()) return
+                    if (trySend(bytes.toString(Charsets.US_ASCII)).isFailure) {
+                        // La pérdida de bytes podría convertir fragmentos vecinos en una trama incorrecta.
+                        close(BleFailure("Se saturó la recepción BLE"))
+                    }
                 }
             }
 
@@ -116,8 +122,7 @@ class BleMeasurementSource(
                 if (!runCatching(block).getOrDefault(false)) close(BleFailure(error))
             }
         }
-        val gatt = adapter.getRemoteDevice(device.address)
-            .connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+        val gatt = openGatt(adapter.getRemoteDevice(device.address), callback)
             ?: throw BleFailure("No se pudo abrir la conexión GATT")
         val timeout = launch {
             delay(15_000)
@@ -129,6 +134,19 @@ class BleMeasurementSource(
             runCatching { gatt.close() }
         }
     }
+
+    /** En API 37 usa un ejecutor explícito para despachar los eventos GATT en orden. */
+    @Suppress("DEPRECATION")
+    private fun openGatt(remote: BluetoothDevice, callback: BluetoothGattCallback): BluetoothGatt? =
+        if (Build.VERSION.SDK_INT >= 37) {
+            val settings = BluetoothGattConnectionSettings.Builder()
+                .setAutoConnectEnabled(false)
+                .setTransport(BluetoothDevice.TRANSPORT_LE)
+                .build()
+            remote.connectGatt(settings, context.mainExecutor, callback)
+        } else {
+            remote.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+        }
 
     @Suppress("DEPRECATION")
     private fun writeSubscription(
