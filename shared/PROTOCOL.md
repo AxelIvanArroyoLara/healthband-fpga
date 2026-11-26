@@ -1,7 +1,7 @@
 # Contrato HB1 de integración
 
 La FPGA emite una línea por segundo en ASCII por UART a 115200, 8N1, sin
-control de flujo. Cada línea canónica tiene 33 bytes, incluido LF (0x0A).
+control de flujo. Cada línea canónica tiene 36 bytes, incluido LF (0x0A).
 
 ```text
 HB1,SEQ=000012,BPM=075,IBI=0800,Q=1
@@ -27,7 +27,7 @@ el siguiente LF. Las comprobaciones de campos y secuencia corresponden a Android
 - Los UUID siguen el esquema Nordic UART para TX. El servidor expone
   únicamente la característica de salida con CCCD estándar.
 - Una notificación lleva hasta MTU − 3 bytes. Con MTU 23, una trama se
-  divide en 20 y 13 bytes. Se suscribe antes de emitir y se reinicia el
+  divide en 20 y 16 bytes. Se suscribe antes de emitir y se reinicia el
   enlace tras un fallo de notificación para aislar fragmentos parciales.
 
 ## Secuencia y reinicio

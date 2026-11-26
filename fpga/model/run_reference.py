@@ -70,11 +70,11 @@ def run_case(rows):
 
 def write_csvs(name, beats, per_sec):
     with open(OUT_DIR / f"{name}_beats.csv", "w", newline="") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         w.writerow(["sample", "interval"])
         w.writerows(beats)
     with open(OUT_DIR / f"{name}_1hz.csv", "w", newline="") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         w.writerow(["t_s", "bpm", "ibi_ms", "data_valid", "quality"])
         w.writerows(per_sec)
 

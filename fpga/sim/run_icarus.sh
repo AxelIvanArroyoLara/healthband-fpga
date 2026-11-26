@@ -19,8 +19,8 @@ mkdir -p "$BUILD" "$OUT"
 : > "$OUT/sim_log.txt"
 
 echo "== Estímulos y modelo de referencia"
-python -I model/gen_stimulus.py
-python -I model/run_reference.py
+python3 -I model/gen_stimulus.py
+python3 -I model/run_reference.py
 
 echo "== tb_ppg_processor (procesamiento con señales sintéticas)"
 iverilog -g2005 -Wall -o "$BUILD/tb_ppg_processor.vvp" tb/tb_ppg_processor.v $RTL
@@ -29,7 +29,7 @@ for stim in stim/*.hex; do
     vvp -n "$BUILD/tb_ppg_processor.vvp" +STIM="$stim" \
         +BEATS_OUT="$OUT/${name}_beats.csv" +HZ_OUT="$OUT/${name}_1hz.csv" | tee -a "$OUT/sim_log.txt"
 done
-python -I model/compare_rtl.py
+python3 -I model/compare_rtl.py
 
 echo "== tb_hb1_uart (100 tramas a 115200 8N1)"
 iverilog -g2005 -Wall -o "$BUILD/tb_hb1_uart.vvp" tb/tb_hb1_uart.v $RTL
