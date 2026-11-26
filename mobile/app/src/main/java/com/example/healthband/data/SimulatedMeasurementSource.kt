@@ -11,14 +11,16 @@ import java.util.Locale
  * Fuente de mediciones simuladas para desarrollo y pruebas.
  *
  * Genera tramas del protocolo HB1 sin utilizar hardware real.
- * También introduce errores controlados para evaluar el parser.
+ * Introduce errores de transporte únicamente en el escenario de prueba explícito.
  *
  * @param intervalMs Tiempo entre ciclos de generación.
  * @param sustainedDemo Genera una elevación continua de prueba entre las tramas 6 y 28.
+ * @param communicationErrors Inserta tramas malformadas y duplicados para probar el parser.
  */
 class SimulatedMeasurementSource(
     private val intervalMs: Long = 1000L,
-    private val sustainedDemo: Boolean = false
+    private val sustainedDemo: Boolean = false,
+    private val communicationErrors: Boolean = false
 ) : MeasurementSource {
 
     /**
@@ -42,7 +44,7 @@ class SimulatedMeasurementSource(
                 }
 
                 // Simula pérdida de contacto o medición inválida.
-                sequence % 15L == 0L -> {
+                communicationErrors && sequence % 15L == 0L -> {
                     formatMessage(
                         sequence = sequence,
                         bpm = 0,
@@ -52,7 +54,7 @@ class SimulatedMeasurementSource(
                 }
 
                 // Genera un mensaje malformado deliberadamente.
-                sequence % 11L == 0L -> {
+                communicationErrors && sequence % 11L == 0L -> {
                     "MENSAJE_INVALIDO\n"
                 }
 
@@ -88,7 +90,7 @@ class SimulatedMeasurementSource(
             }
 
             // Reenvía una trama para comprobar detección de duplicados.
-            if (sequence % 13L == 0L) {
+            if (communicationErrors && sequence % 13L == 0L) {
                 emit(message)
             }
 
@@ -98,7 +100,7 @@ class SimulatedMeasurementSource(
     }
 
     /**
-     * Construye una trama con el formato provisional HB1.
+     * Construye una trama con el formato HB1.
      *
      * @param sequence Número secuencial.
      * @param bpm Frecuencia cardíaca.
@@ -116,7 +118,7 @@ class SimulatedMeasurementSource(
         return String.format(
             Locale.US,
             "HB1,SEQ=%06d,BPM=%03d,IBI=%04d,Q=%d\n",
-            sequence,
+            sequence % Hb1Parser.SEQUENCE_MODULUS,
             bpm,
             ibi,
             quality

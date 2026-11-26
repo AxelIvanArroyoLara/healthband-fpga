@@ -77,7 +77,10 @@ class HealthViewModel internal constructor(
                             val devices = current.devices
                             when {
                                 devices.any { it.address == device.address } ->
-                                    current.copy(devices = devices.map { if (it.address == device.address) device else it })
+                                    current.copy(devices = devices.map {
+                                        // El nombre puede llegar solo en la respuesta de escaneo.
+                                        if (it.address == device.address && device.hasAdvertisedName) device else it
+                                    })
                                 devices.size < 40 -> current.copy(devices = devices + device)
                                 else -> current
                             }
@@ -97,22 +100,31 @@ class HealthViewModel internal constructor(
     }
 
     /** Abre un enlace con el dispositivo elegido; una nueva selección permite reintentar. */
-    fun connectBle(device: BleDevice, config: BleConfig, declaredRest: Boolean) {
-        startSession(isBle = true, declaredRest = declaredRest) { onReady ->
+    fun connectBle(device: BleDevice, config: BleConfig, declaredRest: Boolean, testSource: Boolean = false) {
+        startSession(
+            isBle = true,
+            declaredRest = declaredRest,
+            simulated = testSource || device.name.equals("HealthBand-Test", ignoreCase = true),
+            deviceName = device.name,
+            config = config
+        ) { onReady ->
             BleMeasurementSource(getApplication(), config, device, onReady)
         }
     }
 
     /** Inicia una sesión nueva con contadores y gráfica vacíos. */
-    fun startSimulation(declaredRest: Boolean, sustainedDemo: Boolean = false) =
-        startSession(isBle = false, declaredRest = declaredRest && !sustainedDemo) {
-            SimulatedMeasurementSource(sustainedDemo = sustainedDemo)
+    fun startSimulation(declaredRest: Boolean, sustainedDemo: Boolean = false, communicationErrors: Boolean = false) =
+        startSession(isBle = false, declaredRest = declaredRest && !sustainedDemo && !communicationErrors) {
+            SimulatedMeasurementSource(sustainedDemo = sustainedDemo, communicationErrors = communicationErrors)
         }
 
     /** Inicia la colección de una fuente y serializa el cierre de la sesión anterior. */
     internal fun startSession(
         isBle: Boolean,
         declaredRest: Boolean,
+        simulated: Boolean = !isBle,
+        deviceName: String? = null,
+        config: BleConfig? = null,
         source: (() -> Unit) -> MeasurementSource
     ) {
         if (state.value.isRunning) return
@@ -123,12 +135,15 @@ class HealthViewModel internal constructor(
         state.value = HealthUiState(
             isRunning = true,
             isBle = isBle,
+            simulated = simulated,
+            deviceName = deviceName,
+            bleConfig = config,
             status = if (isBle) ReadingStatus.CONNECTING else ReadingStatus.WAITING,
             historyBusy = state.value.historyBusy
         )
         run.pipeline = viewModelScope.launch {
             scan?.join()
-            acquisition.withLock { collectSession(run, isBle, declaredRest, source) }
+            acquisition.withLock { collectSession(run, isBle, simulated, declaredRest, source) }
         }
     }
 
@@ -136,10 +151,11 @@ class HealthViewModel internal constructor(
     private suspend fun collectSession(
         run: AcquisitionRun,
         isBle: Boolean,
+        simulated: Boolean,
         declaredRest: Boolean,
         source: (() -> Unit) -> MeasurementSource
     ) = coroutineScope {
-        val writer = SessionHistoryWriter(history, !isBle, declaredRest) { error ->
+        val writer = SessionHistoryWriter(history, simulated, declaredRest) { error ->
             updateRun(run) { it.copy(storageError = error) }
         }
         var detector = AnomalyDetector(null, anomalyConfig)
@@ -210,9 +226,12 @@ class HealthViewModel internal constructor(
                         if (result is ParseResult.Success) {
                             val measurement = result.measurement
                             val prior = previous
-                            val startsSegment = prior == null || !prior.isValid ||
-                                Hb1Parser.sequenceDistance(prior.sequence, measurement.sequence) != 1L ||
+                            val sequenceGap = prior != null &&
+                                Hb1Parser.sequenceDistance(prior.sequence, measurement.sequence) != 1L
+                            val startsSegment = prior == null || !prior.isValid || sequenceGap ||
                                 now - previousAt >= staleTimeoutMs
+                            // Un salto de SEQ confirma pérdida de datos aunque el tiempo entre lecturas sea corto.
+                            if (sequenceGap) detector().noData()
                             val analysis = detector().receive(
                                 measurement.bpm.takeIf { measurement.isValid }, now, measurement.receivedAtMs
                             )
