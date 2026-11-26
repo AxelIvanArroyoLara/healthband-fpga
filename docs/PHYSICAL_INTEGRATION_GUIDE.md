@@ -123,7 +123,8 @@ elegir el puente para empezar con SEQ inicial.
 
 ## G. MAX30100 físico · Dani y Sebas
 
-1. Verifica alimentación y niveles I²C. Apaga, conecta GND, SCL y SDA y
+1. Verifica alimentación, niveles I²C y la corriente LED admitida. Apaga,
+   fija SW7–5 según la corriente validada, conecta GND, SCL y SDA y
    energiza. Selecciona SW9=0. Con SW8=1 espera LEDR8 y `11` en HEX5–4.
    El controlador usa I²C a 100 kHz, dirección de 7 bits `0x57`,
    PART_ID `0x11`, modo IR+RED, 100 muestras/s y FIFO de 4 bytes por muestra.

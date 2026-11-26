@@ -203,8 +203,10 @@ fuente sintética activa.
 Prueba sin sensor: SW = 1000000001 (SW9 y SW0 arriba) → la app debería
 mostrar 75 BPM a los ~5 s (prueba compartida 1).
 
-Prueba con sensor: todos los SW abajo, dedo sobre el sensor sin apretar ni
-moverlo. LEDR8 se activa tras configurar el sensor. Espera varios latidos antes de comparar el display.
+Prueba con sensor: deja SW9 y SW8 abajo. Antes de energizar, configura
+SW7–5 según la corriente LED validada para el breakout. Coloca el dedo
+sobre el sensor sin apretar ni moverlo. LEDR8 se activa tras configurar el
+sensor. Espera varios latidos antes de comparar el display.
 
 ## Conectar el MAX30100
 
