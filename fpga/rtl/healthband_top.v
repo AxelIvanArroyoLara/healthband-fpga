@@ -121,6 +121,7 @@ module healthband_top #(
         .part_id       (part_id),
         .scl_oe        (scl_oe),
         .sda_oe        (sda_oe),
+        .is_max30102   (),
         .sda_in        (GPIO[1])
     );
 

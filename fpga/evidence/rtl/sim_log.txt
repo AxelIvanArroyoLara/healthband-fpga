@@ -45,12 +45,16 @@ PASS: 39 tramas, SEQ continuo, sin errores
 tb/tb_healthband_top.v:177: $finish called at 449640190000 (1ps)
 OK   LEDR[8] sensor configurado
 OK   MODE = 0x03 (SpO2)
-OK   SPO2_CONFIG = 0x47 (100 Hz, 16 bits)
-OK   LED_CONFIG = 0x77 (24 mA)
-OK   PART_ID = 0x11
+OK   SPO2_CONFIG (100 Hz)
+OK   corriente de LEDs 0x77 (24 mA)
+OK   LED IR 0x0D = 0x77 (MAX30102)
+OK   FIFO_CONFIG = 0x00 (MAX30102)
+OK   PART_ID leido
+OK   tipo de sensor detectado
 OK   un reset del sensor al arrancar
-OK   HEX5..HEX4 muestran 11 (PART_ID)
-OK   LED_CONFIG = 0xBB al mover SW[7:5]
+OK   HEX5..HEX4 muestran el PART_ID
+OK   HEX3..HEX0 muestran el IR crudo
+OK   LEDs = 0xBB al mover SW[7:5]
 OK   72 BPM sensor: SEQ=9 BPM=72 Q=1
 OK   dedo retirado: SEQ=12 BPM=0 Q=0
 OK   90 BPM sensor: SEQ=22 BPM=90 Q=1
@@ -58,6 +62,28 @@ OK   sensor desconectado: SEQ=24 BPM=0 Q=0
 OK   LEDR[8] apagado sin sensor
 OK   reconectado 90 BPM: SEQ=34 BPM=90 Q=1
 OK   LEDR[8] encendido al reconectar
-OK   reconfigurado tras reconexÿÿ³n
+OK   reconfigurado tras reconexion
 PASS: 35 tramas, 3490 muestras del sensor, SEQ continuo, sin errores
-tb/tb_max30100_top.v:225: $finish called at 809424190000 (1ps)
+tb/tb_max30100_top.v:236: $finish called at 809424190000 (1ps)
+OK   LEDR[8] sensor configurado
+OK   MODE = 0x03 (SpO2)
+OK   SPO2_CONFIG (100 Hz)
+OK   corriente de LEDs 0x77 (24 mA)
+OK   LED IR 0x0D = 0x77 (MAX30102)
+OK   FIFO_CONFIG = 0x00 (MAX30102)
+OK   PART_ID leido
+OK   tipo de sensor detectado
+OK   un reset del sensor al arrancar
+OK   HEX5..HEX4 muestran el PART_ID
+OK   HEX3..HEX0 muestran el IR crudo
+OK   LEDs = 0xBB al mover SW[7:5]
+OK   72 BPM sensor: SEQ=9 BPM=72 Q=1
+OK   dedo retirado: SEQ=12 BPM=0 Q=0
+OK   90 BPM sensor: SEQ=22 BPM=90 Q=1
+OK   sensor desconectado: SEQ=24 BPM=0 Q=0
+OK   LEDR[8] apagado sin sensor
+OK   reconectado 90 BPM: SEQ=34 BPM=90 Q=1
+OK   LEDR[8] encendido al reconectar
+OK   reconfigurado tras reconexion
+PASS: 35 tramas, 3490 muestras del sensor, SEQ continuo, sin errores
+tb/tb_max30100_top.v:236: $finish called at 809424190000 (1ps)

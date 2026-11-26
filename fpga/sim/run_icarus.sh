@@ -43,6 +43,10 @@ echo "== tb_max30100_top (sistema completo con el MAX30100 por I2C, modelo del s
 iverilog -g2005 -Wall -o "$BUILD/tb_max30100_top.vvp" tb/tb_max30100_top.v tb/max30100_model.v $RTL
 vvp -n "$BUILD/tb_max30100_top.vvp" +FRAMES_OUT="$OUT/max30100_frames.txt" | tee -a "$OUT/sim_log.txt"
 
+echo "== tb_max30100_top con el modelo del MAX30102 (mismos módulos, otro mapa de registros)"
+iverilog -g2005 -Wall -P tb_max30100_top.IS102=1 -o "$BUILD/tb_max30102_top.vvp" tb/tb_max30100_top.v tb/max30100_model.v $RTL
+vvp -n "$BUILD/tb_max30102_top.vvp" +FRAMES_OUT="$OUT/max30102_frames.txt" | tee -a "$OUT/sim_log.txt"
+
 if grep -qE "FAIL|ERROR" "$OUT/sim_log.txt"; then
     echo "Hay fallas: revisar $OUT/sim_log.txt"
     exit 1

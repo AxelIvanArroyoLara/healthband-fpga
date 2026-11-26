@@ -1,12 +1,22 @@
 // max30100_model
-// Modelo de comportamiento (solo simulación) del MAX30100 como esclavo I2C.
+// Modelo de comportamiento (solo simulación) del MAX30100 o del MAX30102 como
+// esclavo I2C (IS102 = 0 o 1).
 //
-// - Dirección 0x57. Registros 0x00..0xFF, PART_ID (0xFF) = 0x11.
-// - El puntero de registro se autoincrementa, excepto en FIFO_DATA (0x05).
-// - FIFO de 16 muestras de 4 bytes (IR alto, IR bajo, RED alto, RED bajo);
-//   WR_PTR (0x02), OVF_COUNTER (0x03) y RD_PTR (0x04) como en la hoja de datos.
-// - Escribir 0x40 en MODE (0x06) reinicia los registros.
-// - Con MODE = 0x02 o 0x03 genera una muestra cada SAMPLE_CLKS ciclos de clk
+//                      MAX30100              MAX30102
+//   PART_ID (0xFF)     0x11                  0x15
+//   INT_EN             0x01                  0x02
+//   WR/OVF/RD_PTR      0x02/0x03/0x04        0x04/0x05/0x06
+//   FIFO_DATA          0x05                  0x07
+//   FIFO_CONFIG        -                     0x08
+//   MODE               0x06                  0x09
+//   SPO2_CONFIG        0x07                  0x0A
+//   LED                0x09 {RED,IR}         0x0C (RED), 0x0D (IR)
+//   FIFO               16 x 4 bytes          32 x 6 bytes
+//                      IR[15:0], RED[15:0]   RED[17:0], IR[17:0] (3 bytes c/u)
+//
+// - El puntero de registro se autoincrementa, excepto en FIFO_DATA.
+// - Escribir 0x40 en MODE reinicia los registros.
+// - Con modo HR o SpO2 genera una muestra cada SAMPLE_CLKS ciclos de clk
 //   (su propio "oscilador", distinto del de la FPGA) con una forma de onda PPG:
 //   nivel DC alto que baja en cada sístole, más una onda dicrótica y ruido.
 //
@@ -16,12 +26,26 @@
 `timescale 1ns / 1ps
 
 module max30100_model #(
-    parameter SAMPLE_CLKS = 11_578
+    parameter SAMPLE_CLKS = 11_578,
+    parameter IS102       = 0
 ) (
     input  wire clk,
     input  wire scl,
     inout  wire sda
 );
+
+    localparam [7:0] R_INTEN = IS102 ? 8'h02 : 8'h01;
+    localparam [7:0] R_WR    = IS102 ? 8'h04 : 8'h02;
+    localparam [7:0] R_OVF   = IS102 ? 8'h05 : 8'h03;
+    localparam [7:0] R_RD    = IS102 ? 8'h06 : 8'h04;
+    localparam [7:0] R_FIFO  = IS102 ? 8'h07 : 8'h05;
+    localparam [7:0] R_MODE  = IS102 ? 8'h09 : 8'h06;
+    localparam [7:0] R_SPO2  = IS102 ? 8'h0A : 8'h07;
+    localparam [7:0] R_LED   = IS102 ? 8'h0C : 8'h09;
+    localparam [7:0] PART    = IS102 ? 8'h15 : 8'h11;
+    localparam       DEPTH   = IS102 ? 32 : 16;
+    localparam       NBYTES  = IS102 ? 6 : 4;
+    localparam real  SCALE   = IS102 ? 4.0 : 1.0;   // 18 bits contra 16 bits
 
     real    bpm       = 72.0;
     reg     finger    = 1'b1;
@@ -33,15 +57,17 @@ module max30100_model #(
     // Registros visibles para el testbench.
     reg [7:0] mode_reg = 8'h00;
     reg [7:0] spo2_reg = 8'h00;
-    reg [7:0] led_reg  = 8'h00;
+    reg [7:0] led_reg  = 8'h00;   // MAX30100: {RED,IR}; MAX30102: RED (0x0C)
+    reg [7:0] led2_reg = 8'h00;   // MAX30102: IR (0x0D)
+    reg [7:0] fcfg_reg = 8'hFF;   // MAX30102: FIFO_CONFIG
     reg [7:0] int_en   = 8'h00;
-    reg [3:0] wr_ptr   = 4'd0;
-    reg [3:0] rd_ptr   = 4'd0;
-    reg [4:0] ovf_cnt  = 5'd0;
-    reg [4:0] count    = 5'd0;   // muestras en el FIFO (0..16)
-    reg [1:0] byte_idx = 2'd0;
-    reg [15:0] fifo_ir  [0:15];
-    reg [15:0] fifo_red [0:15];
+    integer   wr_ptr   = 0;
+    integer   rd_ptr   = 0;
+    integer   ovf_cnt  = 0;
+    integer   count    = 0;
+    integer   byte_idx = 0;
+    integer   fifo_ir  [0:31];
+    integer   fifo_red [0:31];
     integer   n_samples = 0;
     integer   n_resets  = 0;
 
@@ -62,18 +88,18 @@ module max30100_model #(
                 g2 = 0.3 * $exp(-((phase - 0.45) * (phase - 0.45)) / (2.0 * 0.05 * 0.05));
                 ac = 400.0 * (g1 + g2);
                 if (finger) begin
-                    ir_val  = 30000 - $rtoi(ac) + ($random % 8);
-                    red_val = 22000 - $rtoi(ac / 2.0) + ($random % 8);
+                    ir_val  = $rtoi(SCALE * (30000.0 - ac)) + ($random % 8);
+                    red_val = $rtoi(SCALE * (22000.0 - ac / 2.0)) + ($random % 8);
                 end else begin
-                    ir_val  = 600 + ($random % 50);
-                    red_val = 400 + ($random % 50);
+                    ir_val  = $rtoi(SCALE * 600.0) + ($random % 50);
+                    red_val = $rtoi(SCALE * 400.0) + ($random % 50);
                 end
-                if (count == 5'd16) begin
-                    if (ovf_cnt != 5'd31) ovf_cnt = ovf_cnt + 1;
+                if (count == DEPTH) begin
+                    if (ovf_cnt != 31) ovf_cnt = ovf_cnt + 1;
                 end else begin
-                    fifo_ir[wr_ptr]  = ir_val[15:0];
-                    fifo_red[wr_ptr] = red_val[15:0];
-                    wr_ptr = wr_ptr + 1;
+                    fifo_ir[wr_ptr]  = ir_val;
+                    fifo_red[wr_ptr] = red_val;
+                    wr_ptr = (wr_ptr + 1) % DEPTH;
                     count  = count + 1;
                 end
                 n_samples = n_samples + 1;
@@ -90,38 +116,54 @@ module max30100_model #(
     function [7:0] peek;
         input [7:0] a;
         begin
-            case (a)
-                8'h01: peek = int_en;
-                8'h02: peek = {4'd0, wr_ptr};
-                8'h03: peek = {3'd0, ovf_cnt};
-                8'h04: peek = {4'd0, rd_ptr};
-                8'h06: peek = mode_reg;
-                8'h07: peek = spo2_reg;
-                8'h09: peek = led_reg;
-                8'hFF: peek = 8'h11;
-                default: peek = 8'h00;
-            endcase
+            peek = 8'h00;
+            if (a == R_INTEN)           peek = int_en;
+            else if (a == R_WR)         peek = wr_ptr;
+            else if (a == R_OVF)        peek = ovf_cnt;
+            else if (a == R_RD)         peek = rd_ptr;
+            else if (a == R_MODE)       peek = mode_reg;
+            else if (a == R_SPO2)       peek = spo2_reg;
+            else if (a == R_LED)        peek = led_reg;
+            else if (IS102 && a == 8'h0D) peek = led2_reg;
+            else if (IS102 && a == 8'h08) peek = fcfg_reg;
+            else if (a == 8'hFF)        peek = PART;
+        end
+    endfunction
+
+    function [7:0] fifo_byte;
+        input integer idx;
+        input integer bi;
+        reg [23:0] w;
+        begin
+            if (IS102) begin
+                w = (bi < 3) ? fifo_red[idx] : fifo_ir[idx];
+                w = w & 24'h03FFFF;
+                case (bi % 3)
+                    0: fifo_byte = w[23:16];
+                    1: fifo_byte = w[15:8];
+                    default: fifo_byte = w[7:0];
+                endcase
+            end else begin
+                w = (bi < 2) ? fifo_ir[idx] : fifo_red[idx];
+                fifo_byte = (bi % 2 == 0) ? w[15:8] : w[7:0];
+            end
         end
     endfunction
 
     task read_byte;
         output [7:0] d;
         begin
-            if (ptr == 8'h05) begin
-                if (count == 5'd0)
+            if (ptr == R_FIFO) begin
+                if (count == 0)
                     d = 8'h00;
                 else begin
-                    case (byte_idx)
-                        2'd0: d = fifo_ir[rd_ptr][15:8];
-                        2'd1: d = fifo_ir[rd_ptr][7:0];
-                        2'd2: d = fifo_red[rd_ptr][15:8];
-                        default: d = fifo_red[rd_ptr][7:0];
-                    endcase
+                    d = fifo_byte(rd_ptr, byte_idx);
                     byte_idx = byte_idx + 1;
-                    if (byte_idx == 2'd0) begin
-                        rd_ptr  = rd_ptr + 1;
-                        count   = count - 1;
-                        ovf_cnt = 5'd0;
+                    if (byte_idx == NBYTES) begin
+                        byte_idx = 0;
+                        rd_ptr   = (rd_ptr + 1) % DEPTH;
+                        count    = count - 1;
+                        ovf_cnt  = 0;
                     end
                 end
             end else begin
@@ -134,24 +176,24 @@ module max30100_model #(
     task write_byte;
         input [7:0] d;
         begin
-            case (ptr)
-                8'h01: int_en = d;
-                8'h02: begin wr_ptr = d[3:0]; count = {1'b0, wr_ptr - rd_ptr}; byte_idx = 0; end
-                8'h03: ovf_cnt = d[4:0];
-                8'h04: begin rd_ptr = d[3:0]; count = {1'b0, wr_ptr - rd_ptr}; byte_idx = 0; end
-                8'h06: begin
-                    if (d[6]) begin
-                        mode_reg = 8'h00; spo2_reg = 8'h00; led_reg = 8'h00; int_en = 8'h00;
-                        wr_ptr = 0; rd_ptr = 0; ovf_cnt = 0; count = 0; byte_idx = 0;
-                        n_resets = n_resets + 1;
-                    end else
-                        mode_reg = d;
-                end
-                8'h07: spo2_reg = d;
-                8'h09: led_reg  = d;
-                default: ;
-            endcase
-            if (ptr != 8'h05) ptr = ptr + 1;
+            if (ptr == R_INTEN) int_en = d;
+            else if (ptr == R_WR)  begin wr_ptr = d % DEPTH; count = (wr_ptr - rd_ptr + DEPTH) % DEPTH; byte_idx = 0; end
+            else if (ptr == R_OVF) ovf_cnt = d;
+            else if (ptr == R_RD)  begin rd_ptr = d % DEPTH; count = (wr_ptr - rd_ptr + DEPTH) % DEPTH; byte_idx = 0; end
+            else if (ptr == R_MODE) begin
+                if (d[6]) begin
+                    mode_reg = 8'h00; spo2_reg = 8'h00; led_reg = 8'h00; led2_reg = 8'h00;
+                    int_en = 8'h00; fcfg_reg = 8'hFF;
+                    wr_ptr = 0; rd_ptr = 0; ovf_cnt = 0; count = 0; byte_idx = 0;
+                    n_resets = n_resets + 1;
+                end else
+                    mode_reg = d;
+            end
+            else if (ptr == R_SPO2) spo2_reg = d;
+            else if (ptr == R_LED)  led_reg  = d;
+            else if (IS102 && ptr == 8'h0D) led2_reg = d;
+            else if (IS102 && ptr == 8'h08) fcfg_reg = d;
+            if (ptr != R_FIFO) ptr = ptr + 1;
         end
     endtask
 
