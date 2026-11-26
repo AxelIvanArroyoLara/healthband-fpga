@@ -158,6 +158,19 @@ module healthband_top #(
         .signal_quality (signal_quality)
     );
 
+    // Grabador de depuración (~41 s de muestras), se lee por JTAG.
+    ppg_logger u_logger (
+        .clk           (clk),
+        .reset_n       (reset_n),
+        .sample_valid  (sample_valid),
+        .ir_sample     (ir_sample),
+        .beat          (beat_valid),
+        .fifo_overflow (fifo_overflow),
+        .data_valid    (data_valid),
+        .quality       (signal_quality),
+        .bpm           (bpm)
+    );
+
     // Trama HB1 por UART.
     wire [7:0] tx_data;
     wire       tx_start;

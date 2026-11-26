@@ -6,8 +6,8 @@ en [`../evidence/quartus/`](../evidence/quartus/).
 
 | Archivo | Para qué | SHA-256 |
 | --- | --- | --- |
-| `healthband.sof` | Programar la FPGA (se pierde al apagar) | `b31fdf9e65c65aa09a927e8d51c37dbf1306db4f412ba7db3833ee646d841e7e` |
-| `healthband.pof` | Grabar en la memoria flash interna (CFM); queda al apagar | `6e09c1709daf930f9cc4889278f0b3898c9bbe9fe598a11fa8aed18ccddd2e6b` |
+| `healthband.sof` | Programar la FPGA (se pierde al apagar) | `cdd1ce029e2590a69256e3262d68bb0c10d7dd456645a10e143cf2f8dabb9847` |
+| `healthband.pof` | Grabar en la memoria flash interna (CFM); queda al apagar | `962ddbf827ad25fe268a20f568541f1f239a2a3219ad2e714c80312ee3c226ae` |
 | `i2c_scan.sof` | Diagnóstico: busca el sensor en todos los pines del JP1 ([detalles](../diag/i2c_scan/README.md)) | `788826bed508bd3a6f83e9e5acf1e93c590831d566e58f832e4d9a2a782fd172` |
 
 ## Programar sin compilar
@@ -28,6 +28,7 @@ quartus_pgm -m jtag -o "p;healthband.sof"
 ```
 
 Si se cambia el Verilog hay que volver a compilar: estos archivos corresponden
-al commit en el que se agregaron.
+al commit en el que se agregaron. Este `healthband.sof` es el que se probó en la
+DE10-Lite el 2026-11-26 con el MAX30100 real y el ESP32 (UART_BRIDGE → app).
 
 Conexiones y uso: [`../DEMO.md`](../DEMO.md).

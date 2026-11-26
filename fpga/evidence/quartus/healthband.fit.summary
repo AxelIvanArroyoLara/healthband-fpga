@@ -1,17 +1,17 @@
-Fitter Status : Successful - Thu Nov 26 04:43:49 2026
+Fitter Status : Successful - Thu Nov 26 17:08:21 2026
 Quartus Prime Version : 21.1.1 Build 850 06/23/2022 SJ Lite Edition
 Revision Name : healthband
 Top-level Entity Name : healthband_top
 Family : MAX 10
 Device : 10M50DAF484C7G
 Timing Models : Final
-Total logic elements : 1,771 / 49,760 ( 4 % )
-    Total combinational functions : 1,699 / 49,760 ( 3 % )
-    Dedicated logic registers : 873 / 49,760 ( 2 % )
-Total registers : 873
+Total logic elements : 2,091 / 49,760 ( 4 % )
+    Total combinational functions : 1,986 / 49,760 ( 4 % )
+    Dedicated logic registers : 1,075 / 49,760 ( 2 % )
+Total registers : 1075
 Total pins : 75 / 360 ( 21 % )
 Total virtual pins : 0
-Total memory bits : 0 / 1,677,312 ( 0 % )
+Total memory bits : 131,072 / 1,677,312 ( 8 % )
 Embedded Multiplier 9-bit elements : 0 / 288 ( 0 % )
 Total PLLs : 0 / 4 ( 0 % )
 UFM blocks : 0 / 1 ( 0 % )

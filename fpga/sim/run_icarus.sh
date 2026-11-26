@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."   # fpga/
 
 RTL="rtl/bin_to_bcd.v rtl/ppg_filter.v rtl/pulse_detector.v rtl/bpm_calc.v
      rtl/ppg_processor.v rtl/uart_tx.v rtl/hb1_framer.v rtl/seg7_bpm.v
-     rtl/ppg_synth.v rtl/i2c_master.v rtl/max30100_ctrl.v rtl/healthband_top.v"
+     rtl/ppg_synth.v rtl/i2c_master.v rtl/max30100_ctrl.v rtl/ppg_logger.v rtl/healthband_top.v"
 BUILD=build/sim
 OUT=evidence/rtl
 mkdir -p "$BUILD" "$OUT"

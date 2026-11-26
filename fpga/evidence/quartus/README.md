@@ -8,23 +8,23 @@ Los archivos resultantes están en [`../../bitstream/`](../../bitstream/).
 
 | Etapa | Resultado |
 | --- | --- |
-| Analysis & Synthesis | Sin errores, 18 warnings |
-| Fitter | Sin errores, 5 warnings |
+| Analysis & Synthesis | Sin errores |
+| Fitter | Sin errores |
 | Assembler (`.sof`, `.pof`) | Sin errores, 1 warning |
 | Timing Analyzer | Sin errores; **todas las restricciones se cumplen** |
 
-Recursos (10M50DAF484C7G): 1 771 elementos lógicos de 49 760 (4 %), 873
-registros, 75 pines, sin memoria ni multiplicadores. `max30100_ctrl` ocupa
-363 elementos lógicos e `i2c_master` 69.
+Recursos (10M50DAF484C7G): 2 091 elementos lógicos de 49 760 (4 %), 1 075
+registros, 75 pines y 131 072 bits de memoria (8 %), que son los del grabador
+de depuración `ppg_logger` (4096 × 32, ~41 s de muestras, lectura por JTAG; ver
+[`../../diag/ppg_capture/`](../../diag/ppg_capture/)). Sin multiplicadores.
 
 Tiempos con el reloj de 50 MHz (periodo de 20 ns), peor caso:
 
 | Modelo | Setup | Hold |
 | --- | --- | --- |
-| Slow 1200 mV 85 °C | +5.330 ns | +0.340 ns |
-| Slow 1200 mV 0 °C | +6.463 ns | +0.305 ns |
+| Slow 1200 mV 85 °C | +6.247 ns | +0.340 ns |
 
-Fmax ≈ 68 MHz.
+Fmax 72.7 MHz (85 °C).
 
 Pines del sensor (reporte del fitter): `GPIO[0]` (V10, SCL) y `GPIO[1]` (W10,
 SDA) quedaron **open drain con pull-up débil activado**; `GPIO[2]` (V9, TX)
