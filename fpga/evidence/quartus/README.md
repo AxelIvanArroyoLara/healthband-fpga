@@ -30,6 +30,13 @@ Pines del sensor (reporte del fitter): `GPIO[0]` (V10, SCL) y `GPIO[1]` (W10,
 SDA) quedaron **open drain con pull-up débil activado**; `GPIO[2]` (V9, TX)
 es salida normal. Lista completa en [`healthband.pin`](healthband.pin).
 
+## Diagrama RTL
+
+[`rtl_viewer_healthband_top.pdf`](rtl_viewer_healthband_top.pdf): esquemático
+del top `healthband_top` exportado desde el RTL Viewer de Quartus (Tools →
+Netlist Viewers → RTL Viewer), con el generador sintético, el controlador
+`max30100_ctrl`, el procesamiento PPG, la trama HB1 y la UART.
+
 ## Warnings revisados
 
 Lista completa en [`warnings.txt`](warnings.txt). Ninguno afecta el funcionamiento:
