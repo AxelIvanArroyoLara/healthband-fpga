@@ -1,0 +1,39 @@
+menu "HealthBand"
+    config HB_TEST_MODE
+        bool "BLE_TEST (datos sinteticos)"
+        default n
+
+    config HB_UART_PORT
+        int "Puerto UART de recepcion"
+        range 1 2
+        default 2
+        depends on !HB_TEST_MODE
+
+
+    config HB_UART_RX
+        int "GPIO RX de UART (verificar el modulo antes de conectar)"
+        range 0 39
+        default 16
+        depends on !HB_TEST_MODE
+
+    choice HB_TEST_SCENARIO
+        prompt "Escenario BLE_TEST"
+        depends on HB_TEST_MODE
+        default HB_TEST_75
+        config HB_TEST_60
+            bool "60 BPM"
+        config HB_TEST_75
+            bool "75 BPM"
+        config HB_TEST_100
+            bool "100 BPM"
+        config HB_TEST_120
+            bool "120 BPM"
+        config HB_TEST_INVALID
+            bool "Q=0"
+    endchoice
+
+    config HB_TEST_FRAGMENT
+        bool "Forzar fragmentos de hasta siete bytes"
+        depends on HB_TEST_MODE
+        default y
+endmenu
