@@ -14,8 +14,9 @@ if {[file exists work]} { vdel -lib work -all }
 vlib work
 vlog -work work rtl/bin_to_bcd.v rtl/ppg_filter.v rtl/pulse_detector.v rtl/bpm_calc.v \
      rtl/ppg_processor.v rtl/uart_tx.v rtl/hb1_framer.v rtl/seg7_bpm.v \
-     rtl/ppg_synth.v rtl/healthband_top.v \
-     tb/tb_ppg_processor.v tb/tb_hb1_uart.v tb/tb_healthband_top.v
+     rtl/ppg_synth.v rtl/i2c_master.v rtl/max30100_ctrl.v rtl/healthband_top.v \
+     tb/tb_ppg_processor.v tb/tb_hb1_uart.v tb/tb_healthband_top.v \
+     tb/max30100_model.v tb/tb_max30100_top.v
 
 foreach stim [lsort [glob stim/*.hex]] {
     set name [file rootname [file tail $stim]]
@@ -30,6 +31,10 @@ run -all
 quit -sim
 
 vsim -c -onfinish stop work.tb_healthband_top +FRAMES_OUT=evidence/rtl/top_frames.txt
+run -all
+quit -sim
+
+vsim -c -onfinish stop work.tb_max30100_top +FRAMES_OUT=evidence/rtl/max30100_frames.txt
 run -all
 quit -sim
 

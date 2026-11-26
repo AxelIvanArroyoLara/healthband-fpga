@@ -1,0 +1,63 @@
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/bpm060.hex): Not enough words in the file for the requested range [0:4095].
+stim/bpm060.hex: 3000 muestras, 30 latidos, 26 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/bpm075.hex): Not enough words in the file for the requested range [0:4095].
+stim/bpm075.hex: 3000 muestras, 37 latidos, 27 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/bpm100.hex): Not enough words in the file for the requested range [0:4095].
+stim/bpm100.hex: 3000 muestras, 49 latidos, 27 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/bpm120.hex): Not enough words in the file for the requested range [0:4095].
+stim/bpm120.hex: 3000 muestras, 60 latidos, 28 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/dicrotic075.hex): Not enough words in the file for the requested range [0:4095].
+stim/dicrotic075.hex: 3000 muestras, 38 latidos, 27 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/doublepeak075.hex): Not enough words in the file for the requested range [0:4095].
+stim/doublepeak075.hex: 3000 muestras, 75 latidos, 0 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/dropout.hex): Not enough words in the file for the requested range [0:4095].
+stim/dropout.hex: 3000 muestras, 36 latidos, 22 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/flat.hex): Not enough words in the file for the requested range [0:4095].
+stim/flat.hex: 2000 muestras, 5 latidos, 0 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 2560100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/nocontact.hex): Not enough words in the file for the requested range [0:4095].
+stim/nocontact.hex: 3000 muestras, 32 latidos, 19 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/noise075.hex): Not enough words in the file for the requested range [0:4095].
+stim/noise075.hex: 3000 muestras, 38 latidos, 27 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/overflow.hex): Not enough words in the file for the requested range [0:4095].
+stim/overflow.hex: 3000 muestras, 38 latidos, 24 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/saturation.hex): Not enough words in the file for the requested range [0:4095].
+stim/saturation.hex: 3000 muestras, 31 latidos, 19 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+PASS: 100 tramas HB1 recibidas sin caracteres incorrectos (3600 bytes)
+tb/tb_hb1_uart.v:165: $finish called at 403121990000 (1ps)
+OK   75 BPM estable: SEQ=11 BPM=75 Q=1
+OK   dedo retirado: SEQ=13 BPM=0 Q=0
+OK   recuperacion 75 BPM: SEQ=26 BPM=75 Q=1
+OK   120 BPM con ruido: SEQ=36 BPM=120 Q=1
+OK   saturacion: SEQ=38 BPM=0 Q=0
+PASS: 39 tramas, SEQ continuo, sin errores
+tb/tb_healthband_top.v:177: $finish called at 449640190000 (1ps)
+OK   LEDR[8] sensor configurado
+OK   MODE = 0x03 (SpO2)
+OK   SPO2_CONFIG = 0x47 (100 Hz, 16 bits)
+OK   LED_CONFIG = 0x77 (24 mA)
+OK   PART_ID = 0x11
+OK   un reset del sensor al arrancar
+OK   HEX5..HEX4 muestran 11 (PART_ID)
+OK   LED_CONFIG = 0xBB al mover SW[7:5]
+OK   72 BPM sensor: SEQ=9 BPM=72 Q=1
+OK   dedo retirado: SEQ=12 BPM=0 Q=0
+OK   90 BPM sensor: SEQ=22 BPM=90 Q=1
+OK   sensor desconectado: SEQ=24 BPM=0 Q=0
+OK   LEDR[8] apagado sin sensor
+OK   reconectado 90 BPM: SEQ=34 BPM=90 Q=1
+OK   LEDR[8] encendido al reconectar
+OK   reconfigurado tras reconexÿÿ³n
+PASS: 35 tramas, 3490 muestras del sensor, SEQ continuo, sin errores
+tb/tb_max30100_top.v:225: $finish called at 809424190000 (1ps)

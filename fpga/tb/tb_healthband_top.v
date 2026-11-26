@@ -1,5 +1,6 @@
 // tb_healthband_top
-// Prueba de sistema del top-level de la DE10-Lite con el generador sintético:
+// Prueba de sistema del top-level de la DE10-Lite con el generador sintético
+// (SW[9] = 1):
 // ppg_synth -> ppg_processor -> hb1_framer -> uart_tx -> pin GPIO[2].
 // Decodifica las tramas UART del pin y comprueba lo mismo que verá el ESP32.
 //
@@ -28,10 +29,13 @@ module tb_healthband_top;
     always #10 clk = ~clk;
 
     reg  [1:0] key = 2'b10;
-    reg  [9:0] sw  = 10'b00_0000_0001;   // 75 BPM
+    reg  [9:0] sw  = 10'b10_0000_0001;   // SW9=1 generador sintético, 75 BPM
     wire [9:0] ledr;
     wire [7:0] hex0, hex1, hex2, hex3, hex4, hex5;
     wire [3:0] gpio;
+
+    pullup (gpio[0]);   // I2C del MAX30100 (sin sensor en esta prueba)
+    pullup (gpio[1]);
 
     healthband_top #(
         .CLK_HZ (CLK_HZ),

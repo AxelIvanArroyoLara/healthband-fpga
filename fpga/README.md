@@ -5,9 +5,9 @@ del MAX30100, detecta pulsaciones, calcula BPM e IBI con indicador de validez
 y transmite el resultado por UART con el protocolo HB1
 ([`../shared/PROTOCOL.md`](../shared/PROTOCOL.md)).
 
-Mientras no esté listo el controlador I²C del sensor, el top-level usa un
-generador sintético (`ppg_synth`) para que la integración FPGA → ESP32 → app
-pueda probarse sin el MAX30100.
+Las muestras vienen del MAX30100 real por I²C (`max30100_ctrl`, SW9 = 0) o
+de un generador sintético (`ppg_synth`, SW9 = 1) para probar la cadena
+FPGA → ESP32 → app sin el sensor.
 
 ## Estado
 
@@ -16,9 +16,9 @@ pueda probarse sin el MAX30100.
 | Filtro, detector de pulsos, BPM/IBI, calidad | RTL escrito; algoritmo validado con el modelo de referencia ([`evidence/reference/summary.md`](evidence/reference/summary.md)) |
 | UART 115200 8N1 + trama HB1 | RTL escrito, testbench de 100 tramas listo |
 | Top-level DE10-Lite, displays, LEDs, QSF/SDC | RTL escrito |
-| Simulación RTL | **Pendiente de correr** (`sim/run_icarus.sh` o `sim/run_questa.do`) |
-| Compilación Quartus, TimeQuest, potencia | Pendiente |
-| Integración con el I²C de Sebas | Pendiente; ver [Integrar el MAX30100](#integrar-el-max30100) |
+| Simulación RTL | Corrida con Icarus (`sim/run_icarus.sh`): todos los testbenches pasan, incluido `tb_max30100_top`. Evidencias en [`evidence/rtl/`](evidence/rtl/) |
+| Compilación Quartus, TimeQuest, potencia | Pendiente (recompilar: el `.sof` anterior no conectaba el I²C a los pines) |
+| Controlador I²C del MAX30100 (`i2c_master` + `max30100_ctrl`) | RTL escrito y simulado con un modelo I²C del sensor (`tb_max30100_top`): configuración, lectura del FIFO por punteros, dedo retirado, desconexión y reconexión. Pendiente probar en la placa. Ver [Conectar el MAX30100](#conectar-el-max30100) |
 
 ## Estructura
 
@@ -34,7 +34,10 @@ fpga/
 │   ├── bin_to_bcd.v     Binario a BCD (trama y displays)
 │   ├── seg7_bpm.v       BPM en HEX2..HEX0
 │   ├── ppg_synth.v      Generador PPG sintético sintetizable
-│   └── healthband_top.v Top-level de la DE10-Lite
+│   ├── i2c_master.v     Maestro I²C por bytes (open drain)
+│   ├── max30100_ctrl.v  Configura el MAX30100 y lee su FIFO a 100 muestras/s
+│   ├── healthband_top.v Top-level de la DE10-Lite
+│   └── old_sebas/       Borradores anteriores del I²C (solo referencia, no se compilan)
 ├── tb/                  Testbenches
 ├── model/               Modelo de referencia y generador de estímulos (Python 3, sin dependencias)
 ├── stim/                Señales sintéticas usadas por los testbenches
@@ -150,7 +153,8 @@ ModelSim/Questa (incluido con Quartus Prime Lite). Los estímulos ya están en
 | --- | --- |
 | `tb_ppg_processor` | 12 señales sintéticas: 60/75/100/120 BPM, ruido, onda dicrótica, doble pico, saturación, dedo retirado, muestras perdidas, `fifo_overflow` y señal plana. Escribe latidos y salidas por segundo; `model/compare_rtl.py` las compara con el modelo. |
 | `tb_hb1_uart` | `hb1_framer` + `uart_tx` a 50 MHz y 115200 reales. Reconstruye 100 tramas con un receptor UART y compara cada carácter, incluidas tramas Q=0 e IBI > 9999. |
-| `tb_healthband_top` | Sistema completo con el generador sintético y los interruptores: 75 BPM, dedo retirado, recuperación, 120 BPM con ruido y saturación, leyendo las tramas del pin UART. |
+| `tb_healthband_top` | Sistema completo con el generador sintético (SW9 = 1) y los interruptores: 75 BPM, dedo retirado, recuperación, 120 BPM con ruido y saturación, leyendo las tramas del pin UART. |
+| `tb_max30100_top` | Sistema completo con el sensor (SW9 = 0) usando `max30100_model`, un modelo I²C del MAX30100 con registros, FIFO, punteros y su propio reloj de muestreo (0.5 % más lento). Verifica la configuración escrita, PART_ID, el cambio de corriente con SW7..SW5, 72 y 90 BPM, dedo retirado, desconexión (NACK) y reconexión automática. |
 
 Con Icarus (Git Bash):
 
@@ -173,37 +177,71 @@ Evidencias que quedan en `evidence/rtl/`: CSV de latidos y por segundo,
 `compare.md` (RTL vs. modelo), `hb1_frames.txt` (listado de las 100 tramas),
 `top_frames.txt` y `sim_log.txt`.
 
-## Prueba en la placa sin sensor
+## Prueba en la placa
 
-1. Abrir `quartus/healthband.qpf`, compilar y programar la DE10-Lite.
-2. Conectar `GPIO[2]` (JP1 pin 3) al RX del ESP32 y GND con GND.
+1. Abrir `quartus/healthband.qpf`, compilar (Processing → Start Compilation)
+   y programar la DE10-Lite con `output_files/healthband.sof`.
+2. Conectar el MAX30100 y el ESP32 como se indica abajo.
 3. Interruptores:
 
 | SW | Función |
 | --- | --- |
-| SW1..SW0 | BPM sintético: 00 = 60, 01 = 75, 10 = 100, 11 = 120 |
-| SW2 | Ruido |
-| SW3 | Dedo retirado → Q=0 |
-| SW4 | Saturación → Q=0 |
+| SW9 | Fuente: 0 = MAX30100 (sensor real), 1 = generador sintético |
+| SW8 | Display de depuración: HEX3..HEX0 = IR crudo en hexadecimal, HEX5..HEX4 = PART_ID del sensor (debe decir `11`) |
+| SW7..SW5 | Corriente de los LEDs del sensor: 000 = 24 mA (por defecto), 001 = 11, 010 = 17.4, 011 = 24, 100 = 30.6, 101 = 37, 110 = 43.6, 111 = 50 mA |
+| SW1..SW0 | Solo sintético: BPM 00 = 60, 01 = 75, 10 = 100, 11 = 120 |
+| SW2 | Solo sintético: ruido |
+| SW3 | Solo sintético: dedo retirado → Q=0 |
+| SW4 | Solo sintético: saturación → Q=0 |
 
 KEY0 es reset. HEX2..HEX0 muestran el BPM o `---`; LEDR0 parpadea con cada
-latido, LEDR1 es Q, LEDR6..LEDR2 son `signal_quality` y LEDR7 indica UART
-transmitiendo. Con SW = 0000000001 la app debería mostrar 75 BPM a los ~5 s
-(prueba compartida 1).
+latido, LEDR1 es Q, LEDR6..LEDR2 son `signal_quality`, LEDR7 indica UART
+transmitiendo, LEDR8 = MAX30100 configurado y respondiendo por I²C y LEDR9 =
+fuente sintética activa.
 
-## Integrar el MAX30100
+Prueba sin sensor: SW = 1000000001 (SW9 y SW0 arriba) → la app debería
+mostrar 75 BPM a los ~5 s (prueba compartida 1).
 
-El controlador I²C es de Sebas y no se copia aquí. En
-`rtl/healthband_top.v` basta con reemplazar las salidas de `u_synth` por las
-de su módulo (`ir_sample`, `red_sample`, `sample_valid`, `fifo_overflow`),
-por ejemplo con un multiplexor controlado por `SW[9]`. `GPIO[0]` (SCL) y
-`GPIO[1]` (SDA) ya están reservados en el QSF. Su módulo debe entregar un
-pulso `sample_valid` de un ciclo por muestra a 100 muestras/s.
+Prueba con sensor: todos los SW abajo, dedo sobre el sensor sin apretar ni
+moverlo. LEDR8 debe encenderse al instante; HEX muestra el BPM a los 5–10 s.
+
+## Conectar el MAX30100
+
+| MAX30100 (módulo) | DE10-Lite | Señal en el diseño |
+| --- | --- | --- |
+| VIN | JP1 pin 29 (3.3 V) | — |
+| GND | JP1 pin 30 (o pin 12) | — |
+| SCL | JP1 pin 1 (`PIN_V10`) | `GPIO[0]` |
+| SDA | JP1 pin 2 (`PIN_W10`) | `GPIO[1]` |
+| INT, IRD, RD | sin conectar | — |
+
+| ESP32 | DE10-Lite |
+| --- | --- |
+| RX (p. ej. GPIO16 / RX2) | JP1 pin 3 (`PIN_V9`, `GPIO[2]`, TX de la FPGA) |
+| GND | JP1 pin 12 o 30 (tierra común obligatoria) |
+
+Notas:
+
+- El I²C va a 100 kHz. SCL y SDA son open drain y tienen el pull-up débil
+  interno de la FPGA activado en el QSF; aun así conviene que el módulo tenga
+  sus resistencias de pull-up (casi todos las traen).
+- Algunos módulos morados "GY-MAX30100" suben SDA/SCL a 1.8 V con su
+  regulador interno. Si LEDR8 nunca enciende, revisar esto: la solución
+  común es quitar las resistencias de pull-up del módulo (o puentearlas a
+  3.3 V) y dejar las de la FPGA o poner 4.7 kΩ externas a 3.3 V.
+- Diagnóstico rápido con SW8 = 1: si HEX5..HEX4 muestran `11` el I²C funciona.
+  Con el dedo puesto el IR crudo (HEX3..HEX0) debe estar más o menos entre
+  `2000` y `F000` (8 000–61 000) y variar un poco con el pulso. Si está cerca de
+  `FFFF` (saturado) bajar la corriente con SW7..SW5; si es menor que `1F40`
+  (8 000, "sin contacto") subirla. Los umbrales están en `ppg_processor`
+  (`CONTACT_MIN`, `SAT_LEVEL`).
+- Si el sensor se desconecta, `max30100_ctrl` lo reintenta cada 100 ms y lo
+  reconfigura solo al volver.
 
 ## Pendientes
 
-- Correr las simulaciones RTL y subir `evidence/rtl/`.
 - Compilar en Quartus, revisar warnings, TimeQuest y Power Analyzer (paso 5 de la guía).
+- Probar el MAX30100 real en la placa (LEDR8, PART_ID = `11`, IR crudo con SW8).
 - Ajustar `CONTACT_MIN`, `SAT_LEVEL` y `MIN_AMP` con el CSV real del MAX30100.
 - Acordar con Axel la regla de reinicio de `SEQ`.
 - Limitación conocida: si la deriva de la línea base es mayor que el pulso, o

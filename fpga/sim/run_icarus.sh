@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."   # fpga/
 
 RTL="rtl/bin_to_bcd.v rtl/ppg_filter.v rtl/pulse_detector.v rtl/bpm_calc.v
      rtl/ppg_processor.v rtl/uart_tx.v rtl/hb1_framer.v rtl/seg7_bpm.v
-     rtl/ppg_synth.v rtl/healthband_top.v"
+     rtl/ppg_synth.v rtl/i2c_master.v rtl/max30100_ctrl.v rtl/healthband_top.v"
 BUILD=build/sim
 OUT=evidence/rtl
 mkdir -p "$BUILD" "$OUT"
@@ -38,6 +38,10 @@ vvp -n "$BUILD/tb_hb1_uart.vvp" +FRAMES_OUT="$OUT/hb1_frames.txt" | tee -a "$OUT
 echo "== tb_healthband_top (sistema completo con generador sintético)"
 iverilog -g2005 -Wall -o "$BUILD/tb_healthband_top.vvp" tb/tb_healthband_top.v $RTL
 vvp -n "$BUILD/tb_healthband_top.vvp" +FRAMES_OUT="$OUT/top_frames.txt" | tee -a "$OUT/sim_log.txt"
+
+echo "== tb_max30100_top (sistema completo con el MAX30100 por I2C, modelo del sensor)"
+iverilog -g2005 -Wall -o "$BUILD/tb_max30100_top.vvp" tb/tb_max30100_top.v tb/max30100_model.v $RTL
+vvp -n "$BUILD/tb_max30100_top.vvp" +FRAMES_OUT="$OUT/max30100_frames.txt" | tee -a "$OUT/sim_log.txt"
 
 if grep -qE "FAIL|ERROR" "$OUT/sim_log.txt"; then
     echo "Hay fallas: revisar $OUT/sim_log.txt"

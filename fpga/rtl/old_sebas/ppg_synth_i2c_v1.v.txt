@@ -1,0 +1,167 @@
+//mision mandar datos lo mas rapido posible, es decir, se prende, configura al max, y luego esta spameando "dame dato" 
+
+module ppg_synth #(
+    parameter CLK_HZ    = 50_000_000,
+    parameter SAMPLE_HZ = 100
+) (
+	input  wire        clk,	
+	input  wire		   rst,
+    output reg  [15:0] ir_sample,
+    output reg  [15:0] red_sample,
+	inout  wire  	   sda,
+	inout  wire        scl
+);
+
+	localparam DIV = CLK_HZ / (4*SAMPLE_HZ);// lo voy a dividir en cuatro cachos	 baja scl, writea sda, sube scl, readea sda
+	localparam ST= 4'b0000, AD = 4'b0001, AK = 4'b0010; FI = 4'b0100; R1 = 4'b0101; R2 = 4'b0011; R3 = 4'b0110; R4 = 4'b0111; A2 = 4'b1000 
+	localparam LSCL = 2'b00, WSDA = 2'b01,HSCL = 2'b10, RSDA = 2'b11;
+	
+	reg [31:0]  div_cnt;
+	wire [1:0]  i2cSta; 			// 0 start, 1 write, 2 read, 3 to be determined	
+	wire        Dclk;		   
+	wire [15:0] ir;
+	wire [15:0] r;			   
+	wire [15:0] ir2  = 16'b0000000000000000;
+	wire [15:0] r2   = 16'b0000000000000000;	
+	wire [1:0]  cycle;
+	wire [3:0]  b8   = 4'b0111;		 			// what bit are we in		
+	wire [7:0]  max  = 8'b10101110; //address de max30100 es write
+	wire [7:0]  send = 8'b00000101; //fifoRegister address
+	wire [2:0]  re   = 3'b000;		//para cuando este listo para el read
+		  
+    always @(posedge clk) begin
+        if (rst) begin
+			Dclk   <= 0;			
+			div_cnt<= 0;
+		end else if (div_cnt == (DIV)-1) begin
+			Dclk   <= 1;
+			div_cnt<= 0;
+		end else begin
+			Dclk   <= 0;
+			div_cnt<= div_cnt + 1;
+		end
+    end
+
+    always @(posedge clk) begin
+        if (rst) begin
+            i2cSta <= ST;
+			scl <= 1'b1;
+			sda <= 1'b1;
+			cycle<=LSCL;
+		end else if (Dclk) begin
+			
+			if (cycle == RSDA) begin
+				cycle <= LSCL;
+			end else begin
+				cycle <= cycle + 2'b01;
+			end									   
+			
+			case (i2cSta)
+				ST: begin case (cycle)
+					LSCL: begin sda <= 0; scl <= 1; end		         
+					WSDA: begin sda <= 0; scl <= 0; end		         
+					HSCL: begin sda <= 0; scl <= 0; end			     	
+					RSDA: begin sda <= 0; scl <= 0; i2cSTA <= AD; end
+				endcase
+				AD: begin case (cycle)
+					LSCL: begin sda <= max[b8]; scl <= 0; b8 <= b8-4'b0001 end		        
+					WSDA: begin sda <= max[b8]; scl <= 0; end		        	
+					HSCL: begin sda <= max[b8]; scl <= 1; end			    	
+					RSDA: begin sda <= max[b8]; scl <= 1;
+					if (b8 == 4'b0000) begin
+						b8 <= 4'b0111;
+						i2cSTA <= AK;
+						end
+					end
+				endcase
+				AK: begin case (cycle)
+					LSCL: begin sda <= 0; scl <= 0; end		      
+					WSDA: begin sda <= 0; scl <= 0; end		      
+					HSCL: begin sda <= 0; scl <= 1; end			  
+					RSDA: begin sda <= 0; scl <= 1;
+					if (max[0] == 1'b0) begin
+						i2cSTA <= FI;			  
+					end else if(re[0] == 1'b1) begin
+						i2cSTA <= ST;
+						re <= 3'b001;
+					end	else begin
+						i2cSTA <= R1;
+						end
+					end
+				endcase
+				FI: begin case (cycle)	  
+					LSCL: begin sda <= send[b8]; scl <= 0; end		         
+					WSDA: begin sda <= send[b8]; scl <= 0; end		         
+					HSCL: begin sda <= send[b8]; scl <= 1; end			     	
+					RSDA: begin sda <= send[b8]; scl <= 1;
+					if (b8 == 4'b0000) begin
+						b8 <= 4'b0111;
+						i2cSTA <= AK;
+						max <= max + 8'b00000001; 
+						end
+					end
+				endcase
+				R1: begin case (cycle)	   
+					LSCL: begin scl <= 0; end		         
+					WSDA: begin scl <= 0; end		         
+					HSCL: begin scl <= 1; end			     	
+					RSDA: begin ir[8+b8] <= sda; scl <= 1;
+					if (b8 == 4'b0000) begin
+						b8 <= 4'b0111;
+						i2cSTA <= A2;
+						re <= 3'b011;
+						end
+					end
+				endcase
+				R2: begin case (cycle)	   
+					LSCL: begin scl <= 0; end		         
+					WSDA: begin scl <= 0; end		         
+					HSCL: begin scl <= 1; end			     	
+					RSDA: begin ir[b8] <= sda; scl <= 1;
+					if (b8 == 4'b0000) begin
+						b8 <= 4'b0111;
+						i2cSTA <= A2;
+						re <= 3'b101;
+						end
+					end
+				endcase	
+				R3: begin case (cycle)	   
+					LSCL: begin scl <= 0; end		         
+					WSDA: begin scl <= 0; end		         
+					HSCL: begin scl <= 1; end			     	
+					RSDA: begin r[8+b8] <= sda; scl <= 1;
+					if (b8 == 4'b0000) begin
+						b8 <= 4'b0111;
+						i2cSTA <= A2;
+						re <= 3'b111;
+						end
+					end
+				endcase
+				R4: begin case (cycle)	   
+					LSCL: begin scl <= 0; end		         
+					WSDA: begin scl <= 0; end		         
+					HSCL: begin scl <= 1; end			     	
+					RSDA: begin r[b8] <= sda; scl <= 1;
+					if (b8 == 4'b0000) begin
+						b8 <= 4'b0111;
+						i2cSTA <= A2;
+						re <= 3'b000;
+						end
+					end
+				endcase
+				A2: begin case (cycle)
+					LSCL: begin sda <= 0; scl <= 0; end		      
+					WSDA: begin sda <= 0; scl <= 0; end		      
+					HSCL: begin sda <= 0; scl <= 1; end			  
+					RSDA: begin sda <= 0; scl <= 1;					
+					begin case (re)	 	
+						3'b011: begin i2cSTA <= R2; end
+						3'b101: begin i2cSTA <= R3; end
+						3'b111: begin i2cSTA <= R4; end
+						3'b000: begin i2cSTA <= ST; max <= 8'b10101110; ir_sample <= ir; red_sample <=red; end
+					end
+				endcase
+			endcase
+		end
+	end		
+endmodule
