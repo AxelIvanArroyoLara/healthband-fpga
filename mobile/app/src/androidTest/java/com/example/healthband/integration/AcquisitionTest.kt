@@ -15,6 +15,7 @@ import com.example.healthband.history.HealthDatabase
 import com.example.healthband.history.HistoryRepository
 import com.example.healthband.history.SessionHistory
 import com.example.healthband.model.Measurement
+import com.example.healthband.ui.HealthUiState
 import com.example.healthband.ui.HealthViewModel
 import com.example.healthband.ui.ReadingStatus
 import java.io.IOException
@@ -373,13 +374,48 @@ class AcquisitionTest {
         }
     }
 
+    /** Una sesión BLE sintética usa calibración de prueba y un salto de SEQ interrumpe el episodio. */
+    @Test
+    fun syntheticBleUsesSimulatedBaselineAndResetsOnSequenceGap() = runBlocking {
+        withTestMonitor { monitor, history, elapsed, _ ->
+            repeat(3) {
+                val id = history.begin(simulated = true, nowMs = 1, declaredRest = true)
+                repeat(20) { index ->
+                    history.record(id, Measurement(index.toLong(), 75, 800, true, 2), index == 0)
+                }
+                history.finish(id, 3)
+            }
+
+            val input = Channel<String>(1)
+            startInput(monitor, input, CompletableDeferred(), isBle = true, simulated = true)
+            monitor.uiState.first { it.baseline != null }
+            suspend fun receive(sequence: Int, at: Long): HealthUiState {
+                elapsed.set(at)
+                input.send(frame(sequence, 105))
+                return monitor.uiState.first { it.lastSequence == sequence.toLong() }
+            }
+
+            for (sequence in 0..14) receive(sequence, sequence * 1_000L)
+            val afterGap = receive(16, 16_000)
+            assertEquals(AnomalyStatus.BRIEF, afterGap.anomaly.status)
+            assertNull(afterGap.anomaly.episode)
+            for (sequence in 17..30) receive(sequence, sequence * 1_000L)
+            val episode = requireNotNull(receive(31, 31_000).anomaly.episode)
+            assertEquals(16_000L, episode.startedElapsedMs)
+            input.close()
+            monitor.uiState.first { !it.isRunning && !it.historyBusy }
+            assertTrue(history.sessions().first().first().simulated)
+        }
+    }
+
     private suspend fun startInput(
         monitor: HealthViewModel,
         input: Channel<String>,
         closed: CompletableDeferred<Unit>,
-        isBle: Boolean = false
+        isBle: Boolean = false,
+        simulated: Boolean = !isBle
     ) = withContext(Dispatchers.Main) {
-        monitor.startSession(isBle, declaredRest = false) { ready ->
+        monitor.startSession(isBle, declaredRest = false, simulated = simulated) { ready ->
             object : MeasurementSource {
                 override fun chunks() = flow {
                     if (isBle) ready()
