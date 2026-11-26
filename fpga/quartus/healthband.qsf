@@ -118,7 +118,7 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to HEX3[*]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to HEX4[*]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to HEX5[*]
 
-# Header JP1 (GPIO): 1/V10 SCL, 2/W10 SDA, 3/V9 FPGA TX, 4/W9 FPGA RX
+# Header JP1 (GPIO): 1/V10 SCL, 2/W10 SDA, 3/V9 FPGA TX, 4/W9 sin uso
 # Alimentacion del MAX30100: JP1 pin 29 = 3.3 V, JP1 pin 30 = GND
 set_location_assignment PIN_V10 -to GPIO[0]
 set_location_assignment PIN_W10 -to GPIO[1]

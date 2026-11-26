@@ -18,6 +18,15 @@ OUT=evidence/rtl
 mkdir -p "$BUILD" "$OUT"
 : > "$OUT/sim_log.txt"
 
+# Los bancos Verilog-2001 reportan fallos por texto, incluso si vvp retorna 0.
+run_simulation() {
+    vvp -n "$@" | tee -a "$OUT/sim_log.txt" | awk '
+        { print }
+        /^(FAIL|ERROR)/ { failed = 1 }
+        END { exit failed }
+    '
+}
+
 echo "== Estímulos y modelo de referencia"
 python3 -I model/gen_stimulus.py
 python3 -I model/run_reference.py
@@ -26,25 +35,24 @@ echo "== tb_ppg_processor (procesamiento con señales sintéticas)"
 iverilog -g2005 -Wall -o "$BUILD/tb_ppg_processor.vvp" tb/tb_ppg_processor.v $RTL
 for stim in stim/*.hex; do
     name=$(basename "$stim" .hex)
-    vvp -n "$BUILD/tb_ppg_processor.vvp" +STIM="$stim" \
-        +BEATS_OUT="$OUT/${name}_beats.csv" +HZ_OUT="$OUT/${name}_1hz.csv" | tee -a "$OUT/sim_log.txt"
+    run_simulation "$BUILD/tb_ppg_processor.vvp" +STIM="$stim" \
+        +BEATS_OUT="$OUT/${name}_beats.csv" +HZ_OUT="$OUT/${name}_1hz.csv"
 done
 python3 -I model/compare_rtl.py
 
 echo "== tb_hb1_uart (100 tramas a 115200 8N1)"
 iverilog -g2005 -Wall -o "$BUILD/tb_hb1_uart.vvp" tb/tb_hb1_uart.v $RTL
-vvp -n "$BUILD/tb_hb1_uart.vvp" +FRAMES_OUT="$OUT/hb1_frames.txt" | tee -a "$OUT/sim_log.txt"
+run_simulation "$BUILD/tb_hb1_uart.vvp" +FRAMES_OUT="$OUT/hb1_frames.txt"
+iverilog -g2005 -Wall -Ptb_hb1_uart.WRAP=1 -Ptb_hb1_uart.N_FRAMES=3 \
+    -o "$BUILD/tb_hb1_wrap.vvp" tb/tb_hb1_uart.v $RTL
+run_simulation "$BUILD/tb_hb1_wrap.vvp" +FRAMES_OUT="$BUILD/hb1_wrap.txt"
 
 echo "== tb_healthband_top (sistema completo con generador sintético)"
 iverilog -g2005 -Wall -o "$BUILD/tb_healthband_top.vvp" tb/tb_healthband_top.v $RTL
-vvp -n "$BUILD/tb_healthband_top.vvp" +FRAMES_OUT="$OUT/top_frames.txt" | tee -a "$OUT/sim_log.txt"
+run_simulation "$BUILD/tb_healthband_top.vvp" +FRAMES_OUT="$OUT/top_frames.txt"
 
 echo "== tb_max30100_top (sistema completo con el MAX30100 por I2C, modelo del sensor)"
 iverilog -g2005 -Wall -o "$BUILD/tb_max30100_top.vvp" tb/tb_max30100_top.v tb/max30100_model.v $RTL
-vvp -n "$BUILD/tb_max30100_top.vvp" +FRAMES_OUT="$OUT/max30100_frames.txt" | tee -a "$OUT/sim_log.txt"
+run_simulation "$BUILD/tb_max30100_top.vvp" +FRAMES_OUT="$OUT/max30100_frames.txt"
 
-if grep -qE "FAIL|ERROR" "$OUT/sim_log.txt"; then
-    echo "Hay fallas: revisar $OUT/sim_log.txt"
-    exit 1
-fi
 echo "Todas las simulaciones pasaron. Evidencias en fpga/$OUT/"

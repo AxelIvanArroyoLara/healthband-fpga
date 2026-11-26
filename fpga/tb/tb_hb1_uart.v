@@ -10,6 +10,7 @@
 // tarda 3.1 ms, así que caben en el periodo de 4 ms.
 //
 // CONTRACT=1 limita el estímulo a los rangos de emisión para el enlace con Android.
+// WRAP=1 prueba el acarreo de 999999 a 000000 sin simular un millón de tramas.
 // Salida: FRAMES_OUT (por defecto hb1_frames.txt) con el listado de tramas.
 
 `timescale 1ns / 1ps
@@ -21,6 +22,7 @@ module tb_hb1_uart;
     parameter FRAME_HZ = 250;
     parameter N_FRAMES = 100;
     parameter CONTRACT = 0;
+    parameter WRAP = 0;
 
     localparam BIT_CLKS  = (CLK_HZ + BAUD / 2) / BAUD;
     localparam FRAME_LEN = 36;
@@ -85,7 +87,7 @@ module tb_hb1_uart;
             if (pos == 35)
                 expected_char = 8'h0A;
             else if (pos >= 8 && pos <= 13) begin
-                v = k;
+                v = (k + (WRAP ? 999998 : 0)) % 1000000;
                 repeat (13 - pos) v = v / 10;
                 expected_char = "0" + v % 10;
             end else if (pos >= 19 && pos <= 21) begin
@@ -138,12 +140,19 @@ module tb_hb1_uart;
         set_inputs(0);
         repeat (5) @(negedge clk);
         reset_n = 1'b1;
+        if (WRAP) u_framer.seq = 24'h999998;
 
         for (frame = 0; frame < N_FRAMES; frame = frame + 1) begin
             frame_errors = 0;
             for (pos = 0; pos < FRAME_LEN; pos = pos + 1) begin
                 uart_receive(c, ok);
                 $fwrite(ffr, "%c", c);
+                if (pos == 0) begin
+                    // Cambia los datos durante UART para comprobar que la instantánea es estable.
+                    bpm = 0;
+                    ibi_ms = 0;
+                    data_valid = !data_valid;
+                end
                 if (!ok) begin
                     $display("ERROR trama %0d pos %0d: bit de inicio/parada incorrecto", frame, pos);
                     frame_errors = frame_errors + 1;
