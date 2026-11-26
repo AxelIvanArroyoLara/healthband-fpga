@@ -53,8 +53,7 @@ def read_artifacts(entries, folder):
     if set(expected) != EXPECTED[folder]:
         raise ValueError(f"Manifiesto incompleto o inesperado: {folder}")
     if folder == ARTIFACT_DIRS[0]:
-        apk_names = expected.keys()
-        for name in apk_names:
+        for name in expected:
             with ZipFile(ROOT / folder / name) as apk:
                 if "AndroidManifest.xml" not in apk.namelist():
                     raise ValueError(f"APK inválido: {name}")
@@ -63,9 +62,11 @@ def read_artifacts(entries, folder):
         content = (ROOT / path).read_bytes()
         if hashlib.sha256(content).hexdigest() != digest:
             raise ValueError(f"SHA-256 incorrecto: {path}")
-        if path.as_posix() in entries:
-            raise ValueError(f"Entrada ya incluida: {path}")
-        entries[path.as_posix()] = (content, 0o644)
+        name_in_zip = path.as_posix()
+        entry = entries.get(name_in_zip)
+        if entry is not None and entry[0] != content:
+            raise ValueError(f"El artefacto local difiere del commit: {path}")
+        entries.setdefault(name_in_zip, (content, 0o644))
 
 
 def make_package(output):
