@@ -32,3 +32,7 @@
 - SpO₂ queda fuera del MVP. El canal RED se adquiere para usos posteriores.
 
 [Detalle de Android](../mobile/README.md) · [Validación física](PHYSICAL_TEST_CHECKLIST.md)
+
+Los binarios de pruebas se distribuyen en el ZIP, con procedencia y
+SHA-256 por componente. El flujo Git conserva fuentes, reportes y manifiestos.
+[Manifiesto de entregables](ARTIFACTS_MANIFEST.md)

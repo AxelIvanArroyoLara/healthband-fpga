@@ -49,3 +49,6 @@ Room implementan el monitor, el parser y la persistencia local.
 - La calidad depende de sensor, contacto, alimentación y calibración.
 - [FPGA](../fpga/README.md) describe los filtros, interfaces y pruebas.
   El [checklist](PHYSICAL_TEST_CHECKLIST.md) define la aceptación física.
+
+La [matriz de responsabilidades](RESPONSIBILITIES.md) indica quién verifica
+cada tramo y dónde se documenta la aceptación física.

@@ -257,3 +257,6 @@ Notas:
   la onda dicrótica es casi tan alta como la sístole, el detector no logra
   estabilizarse y reporta Q=0 (caso `doublepeak075`). Es el comportamiento
   observado en ese escenario sintético.
+
+[Entregables Quartus y pasos de programación](artifacts/README.md) ·
+[Capturas RTL](evidence/rtl/compare.md)

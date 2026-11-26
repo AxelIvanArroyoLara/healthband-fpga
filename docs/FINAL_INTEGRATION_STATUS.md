@@ -52,18 +52,18 @@ y se cerró al terminar.
   respecto del arreglo del banco. Android lint conserva advertencias de
   dependencias y recursos registradas en su informe.
 
-## Archivos de mesa
+## Cierre del repositorio
 
-Los binarios y evidencias locales se copiaron al directorio ignorado
-`/Users/axelivanarroyolara/Documents/Coding/Projects/healthband-fpga/mobile/build/healthband-final-integration`. El manifiesto `BUILD_PROVENANCE.txt` identifica los commits y
-`SHA256SUMS.txt` permite verificar las copias.
+La integración se incorporó por fast-forward a `develop` en el directorio
+principal. Los entregables se conservan por componente en `mobile/artifacts/`
+y `esp32/artifacts/`. Los reportes están en `mobile/evidence/`,
+`esp32/evidence/`, `fpga/evidence/` y `shared/evidence/`.
 
-| Archivo | Ruta desde el directorio local | Procedencia |
-| --- | --- | --- |
-| APK debug con firma de desarrollo | `apk/app-debug.apk` | Código móvil de `ee7bd39` |
-| APK release sin firmar | `apk/app-release-unsigned.apk` | Código móvil de `ee7bd39` |
-| ESP32 UART_BRIDGE | `esp32/bridge/healthband_bridge.bin` | `88a5a1d` |
-| ESP32 BLE_TEST | `esp32/ble-test/healthband_bridge.bin` | `88a5a1d` |
-| Bootloader, tabla, ELF y flash_args | `esp32/bridge/`, `esp32/ble-test/` | `88a5a1d`, por perfil |
-| SOF | `fpga/quartus/output_files/healthband.sof` en el checkout de integración | Pendiente. Ejecutar `quartus_sh --flow compile healthband` desde `fpga/quartus/` |
-| Resultados de pruebas | `evidence/` | [Guía física](PHYSICAL_INTEGRATION_GUIDE.md) para registrar resultados de mesa |
+[Manifiesto de entregables](ARTIFACTS_MANIFEST.md) ·
+[Responsabilidades](RESPONSIBILITIES.md) ·
+[Guía física](PHYSICAL_INTEGRATION_GUIDE.md)
+
+La verificación de cierre ejecuta `bash shared/test_hb1.sh` y
+`bash fpga/sim/run_icarus.sh`. Los resultados de instrumentación, lint y
+compilación se conservan de la integración. El estado de mesa se registra
+en la checklist durante las pruebas físicas.

@@ -33,14 +33,33 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-El APK de depuración queda en `app/build/outputs/apk/debug/app-debug.apk`.
-Ejecuta la configuración `app` de Android Studio o instala el APK con
-`adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+El [paquete de pruebas](artifacts/README.md) incluye el APK debug instalable.
+Desde `mobile/`, conecta un teléfono con depuración USB habilitada y acepta
+su autorización. Comprueba la conexión con `adb devices` y ejecuta
+`adb install -r artifacts/app-debug.apk`. Puedes instalar también desde el
+gestor de archivos del teléfono si autorizas esa fuente.
+
+La compilación genera `app/build/outputs/apk/debug/app-debug.apk`. Ejecuta
+`./gradlew :app:assembleRelease` para generar el APK release, que requiere
+firma antes de la instalación.
+
+Para capturar logs, abre HealthBand y ejecuta desde la terminal:
+
+```sh
+pid=$(adb shell pidof -s com.example.healthband | tr -d '\r')
+test -n "$pid" && adb logcat -d --pid="$pid" > healthband-android.log
+```
+
+Vuelve a obtener el PID si se reinicia la app. Para evidencias compartidas
+utiliza simulación y elimina del log identificadores del teléfono o datos
+personales.
 
 ## Monitor e historial
 
-1. En **Monitor**, pulsa **Iniciar simulación**. La fuente de prueba envía BPM
-   e IBI, tramas fragmentadas, duplicados, tramas incorrectas y lecturas Q=0.
+1. En **Monitor**, pulsa **Iniciar simulación** para recibir lecturas
+   sintéticas válidas. Selecciona **Simular errores de comunicación** para
+   probar duplicados, líneas incorrectas y Q=0. Para usar el puente,
+   detén la simulación y abre **Configurar Bluetooth LE**.
 2. Observa los contadores y la gráfica de hasta 60 posiciones. Q=0 retira los
    valores actuales y marca un corte. Si pasan cuatro segundos sin una trama
    aceptada, el monitor muestra datos obsoletos y conserva la gráfica.
@@ -116,7 +135,9 @@ reposo de al menos 30 segundos cada una. Pulsa **Simular elevación sostenida**
 y espera hasta que se confirme el episodio. La fuente genera 105 BPM durante
 23 muestras a partir de la sexta trama. Detén la sesión y abre el episodio
 en **Historial** para consultar su duración, pico y diferencia respecto a
-la referencia, y para registrar el contexto.
+la referencia. Pulsa **Añadir contexto**, elige la opción y vuelve a abrir
+la sesión para comprobar el guardado. Usa **Eliminar sesión** para probar
+el borrado con una sesión de demostración.
 
 El análisis describe desviaciones estadísticas del reposo. Los contextos son
 anotaciones del usuario y este prototipo carece de validación clínica.
@@ -195,3 +216,5 @@ reportar 0 errores y 11 advertencias de versiones y recursos de plantilla.
    activas. Contrasta tramas UART y lectura visible, provoca pérdida de
    contacto, restablece señal y verifica el cierre y reapertura del historial.
    Usa esta prueba para comprobar el recorrido de datos y la calidad de señal.
+
+[Pruebas de mesa y responsables](../docs/RESPONSIBILITIES.md) · [Reportes de Android](evidence/README.md)

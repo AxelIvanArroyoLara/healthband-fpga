@@ -73,3 +73,11 @@ registran en el checklist.
 
 [API NimBLE de Espressif](https://docs.espressif.com/projects/esp-idf/en/v5.5.6/esp32/api-reference/bluetooth/nimble/index.html)
 [API UART de Espressif](https://docs.espressif.com/projects/esp-idf/en/v5.5.6/esp32/api-reference/peripherals/uart.html)
+
+## Paquetes listos para flashear
+
+Usa [UART_BRIDGE](artifacts/uart-bridge/README.md) o
+[BLE_TEST](artifacts/ble-test/README.md) desde el ZIP final. Cada carpeta
+incluye configuración resuelta y `flash_args` para mantener los offsets
+generados. Si cambias el pin o el escenario, recompila el perfil,
+registra el commit y vuelve a calcular los hashes.

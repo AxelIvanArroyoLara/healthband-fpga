@@ -1,6 +1,6 @@
 # Guía de integración física
 
-Realiza las pruebas A–H en orden y registra la evidencia en el
+Sebas y Dani realizan las pruebas A–H en orden y registran la evidencia en el
 [checklist](PHYSICAL_TEST_CHECKLIST.md). El objetivo es verificar adquisición,
 transporte y estabilidad del prototipo académico.
 
@@ -12,7 +12,7 @@ transporte y estabilidad del prototipo académico.
   disponibles, analizador lógico o adaptador UART TTL de 3,3 V.
 - Computadora con Quartus Prime Lite, soporte MAX 10 y controlador USB-Blaster.
   Computadora con ESP-IDF v5.5.6 para ESP32 clásico.
-- [Estado de integración y binarios](FINAL_INTEGRATION_STATUS.md).
+- [Manifiesto de binarios y evidencias](ARTIFACTS_MANIFEST.md).
   [Contrato y UUID HB1](../shared/PROTOCOL.md).
   [Fuentes y evidencias FPGA](../fpga/README.md).
   [Configuraciones y carga ESP32](../esp32/README.md).
@@ -51,10 +51,12 @@ los niveles. Ante incompatibilidad, usa la adaptación de nivel correspondiente.
 [Manual Terasic, figura 3-18 y tabla 3-7](https://www.mouser.com/datasheet/3/996/1/DE10-Lite_User_Manual.pdf)
 [Datasheet MAX30100](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX30100.pdf)
 
-## A. Android independiente · Axel
+## A. Android independiente · Dani
 
-1. Instala el APK debug en el teléfono. Inicia **Iniciar simulación**.
-   Verifica BPM, IBI, gráfica y aceptadas. Detén y comprueba lecturas guardadas.
+1. Instala el [APK debug](../mobile/artifacts/app-debug.apk) en el teléfono.
+   En **Monitor**, pulsa **Iniciar simulación**. Verifica BPM (pulsos por
+   minuto), IBI (milisegundos entre pulsos), gráfica y tramas aceptadas.
+   Detén la adquisición y comprueba las lecturas guardadas en **Historial**.
 2. Pulsa **Simular errores de comunicación** durante 20 s. Comprueba
    duplicado y formato incorrecto en rechazadas. En la trama 15, Q=0 deja
    la lectura vacía, abre un corte de gráfica y queda fuera de estadísticas.
@@ -64,7 +66,12 @@ los niveles. Ante incompatibilidad, usa la adaptación de nivel correspondiente.
    **Simular elevación sostenida**. Confirma que aparece la referencia de
    tres sesiones y un episodio alrededor de la trama 21. La elevación es
    de 105 BPM entre las tramas 6 y 28. Detén, abre **Historial**, selecciona
-   la sesión y registra contexto en el episodio.
+   la sesión y pulsa **Añadir contexto** en el episodio. Vuelve a abrirla
+   para comprobar que se guardó la anotación. Usa una sesión de prueba
+   separada para verificar **Eliminar sesión**. Para comprobar un pico
+   breve, inicia otra elevación simulada y detén la adquisición pocos
+   segundos después de que aparezcan 105 BPM. Consulta el historial y
+   confirma que la sesión breve no contiene un episodio sostenido.
 4. El algoritmo exige al menos tres sesiones con 20 lecturas válidas por
    sesión. El umbral suma a la mediana el mayor incremento entre 12 BPM,
    15 % y 3 veces la MAD escalada por 1,4826. Exige 15 s y 10 muestras
@@ -75,16 +82,18 @@ los niveles. Ante incompatibilidad, usa la adaptación de nivel correspondiente.
 
 ## B. ESP32 independiente · Sebas
 
-1. Confirma el puerto y flashea el perfil BLE_TEST con el procedimiento ESP32.
+1. Identifica el ESP32 clásico y su puerto. Verifica y flashea el paquete
+   [BLE_TEST](../esp32/artifacts/ble-test/README.md) y abre el monitor serie.
 2. Abre el monitor. Debe anunciar `HealthBand-Test`. Si hay escáner BLE
    genérico, comprueba servicio, característica Notify y CCCD. Suscríbete y
    confirma fragmentos de hasta 7 bytes y una trama completa por segundo.
 3. Cierra el escáner genérico para liberar la conexión antes de utilizar Android.
 
-## C. ESP32 → Android · Axel y Sebas
+## C. ESP32 → Android · Sebas
 
-1. En Android abre **Configurar Bluetooth LE**, comprueba UUID y escanea
-   con los permisos solicitados. Elige `HealthBand-Test` o activa
+1. Activa Bluetooth, abre **Configurar Bluetooth LE** y concede
+   los permisos solicitados. Comprueba los [UUID HB1](../shared/PROTOCOL.md)
+   y pulsa **Buscar dispositivos**. Elige `HealthBand-Test` o activa
    **Fuente BLE sintética** si el anuncio no tiene nombre. Espera la
    confirmación GATT y la primera trama.
 2. Registra 100 tramas consecutivas. Compara SEQ, aceptadas y guardadas
@@ -97,7 +106,8 @@ los niveles. Ante incompatibilidad, usa la adaptación de nivel correspondiente.
 
 ## D. FPGA independiente · Dani
 
-1. Compila y programa el SOF correspondiente a la revisión actual.
+1. [Compila y programa el SOF](../fpga/artifacts/README.md) correspondiente
+   a la revisión actual.
 2. Activa SW9, deja SW8 apagado. Usa SW1–0 `00/01/10/11` para
    60/75/100/120 BPM. Espera estabilización y compara display con captura
    UART. El divisor 434 a 50 MHz da aproximadamente 115207 baudios.
@@ -105,15 +115,15 @@ los niveles. Ante incompatibilidad, usa la adaptación de nivel correspondiente.
    guiones, LEDR1 apagado y tramas Q=0 con SEQ creciente. Desactívalos y
    verifica recuperación. SW2 agrega ruido. KEY0 reinicia SEQ.
 
-## E. FPGA → ESP32 · Dani y Sebas
+## E. FPGA → ESP32 · Sebas y Dani
 
-1. Flashea UART_BRIDGE. Apaga las placas, conecta JP1 pin 3 al RX verificado
+1. Flashea el paquete [UART_BRIDGE](../esp32/artifacts/uart-bridge/README.md). Apaga las placas, conecta JP1 pin 3 al RX verificado
    del ESP32 y GND común, y alimenta ambas placas.
 2. Comprueba que el monitor registra líneas UART y, tras suscripción,
    tramas aceptadas por la pila. Captura FPGA TX a 115200 8N1 y verifica
    36 bytes incluido LF. Compara con el stream de notificaciones reconstruido.
 
-## F. FPGA sintética → Android · Equipo
+## F. FPGA sintética → Android · Sebas y Dani
 
 Mantén SW9 activo y marca **Fuente BLE sintética** antes de conectar.
 Compara display, SEQ y Q con la captura UART, Android y el historial.
@@ -121,7 +131,7 @@ Considera la ventana de procesamiento PPG y el retardo de transporte.
 Cambia el BPM y provoca Q=0. Tras KEY0, desconecta Android y vuelve a
 elegir el puente para empezar con SEQ inicial.
 
-## G. MAX30100 físico · Dani y Sebas
+## G. MAX30100 físico · Sebas y Dani
 
 1. Verifica alimentación, niveles I²C y la corriente LED admitida. Apaga,
    fija SW7–5 según la corriente validada, conecta GND, SCL y SDA y
@@ -137,7 +147,7 @@ elegir el puente para empezar con SEQ inicial.
    Los parámetros `CONTACT_MIN`, `SAT_LEVEL` y `MIN_AMP` de
    `ppg_processor` requieren caracterización con el hardware de mesa.
 
-## H. Sistema real · Equipo
+## H. Sistema real · Sebas y Dani
 
 Inicia una adquisición nueva con fuente BLE física. Verifica diez minutos
 de extremo a extremo. Anota BPM, IBI, calidad, primeras y últimas secuencias,

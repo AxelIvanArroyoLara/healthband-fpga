@@ -8,3 +8,5 @@ comunicaciones y aplicación compartan el mismo contexto.
 - [Estado de integración](FINAL_INTEGRATION_STATUS.md)
 - [Guía física](PHYSICAL_INTEGRATION_GUIDE.md)
 - [Checklist físico](PHYSICAL_TEST_CHECKLIST.md)
+- [Responsabilidades](RESPONSIBILITIES.md)
+- [Manifiesto de entregables](ARTIFACTS_MANIFEST.md)

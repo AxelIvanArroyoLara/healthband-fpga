@@ -33,3 +33,17 @@ cada resultado en el [checklist](docs/PHYSICAL_TEST_CHECKLIST.md). El
 [estado de integración](docs/FINAL_INTEGRATION_STATUS.md) indica pruebas,
 binarios y bloqueos. El recorrido automatizado RTL–C–Android se ejecuta
 desde la raíz con `bash shared/test_hb1.sh`.
+
+## Entrega para pruebas físicas
+
+El [registro de responsabilidades](docs/RESPONSIBILITIES.md) asigna las
+pruebas y el cierre a Sebas y Dani. La integración está en `develop`.
+El [manifiesto](docs/ARTIFACTS_MANIFEST.md) describe los binarios, sus
+sumas y cómo regenerarlos. El ZIP de entrega incluye los APK y el firmware.
+Un clon obtiene fuentes, reportes y manifiestos. Para incorporar los binarios,
+extrae el ZIP o compílalos siguiendo los README de cada proyecto.
+
+Con los binarios ya ubicados en sus carpetas, ejecuta
+`python3 shared/package_testing.py` desde la raíz. El resultado queda en
+`deliverables/healthband-final-testing.zip`. Usa `--output` para generar
+otra copia en una ruta nueva.
