@@ -75,7 +75,7 @@ def write_case(name, ir, red, flags, beats, description):
             f.write(f"{fl:02x}{clamp16(r):04x}{clamp16(x):04x}\n")
         f.write("8000000000\n")
     with open(STIM_DIR / f"{name}_truth.csv", "w", newline="") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         w.writerow(["beat_time_s"])
         for b in beats:
             w.writerow([f"{b:.4f}"])

@@ -21,7 +21,7 @@ sealed interface ParseResult {
 }
 
 /**
- * Interpreta mensajes del protocolo provisional HealthBand HB1.
+ * Interpreta mensajes del protocolo HealthBand HB1.
  *
  * Formato:
  * HB1,SEQ=000012,BPM=075,IBI=0800,Q=1
@@ -124,7 +124,7 @@ class Hb1Parser(
             }
         }
 
-        // Los rangos provisionales solo se aplican a datos válidos.
+        // Los rangos de recepción solo se aplican a datos válidos.
         if (isValid) {
 
             if (bpm !in MIN_BPM..MAX_BPM) {
@@ -168,7 +168,7 @@ class Hb1Parser(
     companion object {
         const val SEQUENCE_MODULUS = 1_000_000L
 
-        /** Calcula el avance en el contador circular provisional de seis dígitos. */
+        /** Calcula el avance en el contador circular de seis dígitos. */
         fun sequenceDistance(previous: Long, next: Long): Long =
             (next - previous + SEQUENCE_MODULUS) % SEQUENCE_MODULUS
 

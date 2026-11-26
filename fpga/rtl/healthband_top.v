@@ -27,7 +27,7 @@
 //   GPIO[1]  JP1 pin 2 (PIN_W10)  SDA del MAX30100 (open drain)
 //   GPIO[2]  JP1 pin 3 (PIN_V9)   UART TX hacia el RX del ESP32, 115200 8N1, 3.3 V
 //   GPIO[3]  JP1 pin 4 (PIN_W9)   sin uso
-//   JP1 pin 29 = 3.3 V (VIN del MAX30100), JP1 pin 12 o 30 = GND
+//   JP1 pin 29 = 3.3 V (verificar alimentación del breakout), JP1 pin 12 o 30 = GND
 
 module healthband_top #(
     parameter CLK_HZ    = 50_000_000,

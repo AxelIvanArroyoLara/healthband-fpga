@@ -1,64 +1,39 @@
-# Protocolo provisional
+# Contrato HB1 de integración
 
-Este documento describe una primera propuesta para intercambiar mediciones.
-**No es el protocolo definitivo**: los UUID BLE, límites exactos de los
-campos, política de reconexión y otros parámetros siguen pendientes de
-acuerdo.
-
-## Trama de ejemplo
+La FPGA emite una línea por segundo en ASCII por UART a 115200, 8N1, sin
+control de flujo. Cada línea canónica tiene 36 bytes, incluido LF (0x0A).
 
 ```text
 HB1,SEQ=000012,BPM=075,IBI=0800,Q=1
+HB1,SEQ=000013,BPM=000,IBI=0000,Q=0
 ```
 
-Los campos son:
+| Campo | Emisor | Receptor Android |
+| --- | --- | --- |
+| SEQ | Seis dígitos, 000000–999999 | Avance circular inferior a 500000, con rechazo de duplicados |
+| BPM | Tres dígitos, 30–240 con Q=1 | Mismo rango |
+| IBI | Cuatro dígitos, 250–2000 ms con Q=1 | 250–2500 ms por compatibilidad |
+| Q | 1 válida, 0 inválida | Q=0 consume SEQ, oculta lectura, corta gráfica y análisis, y excluye la muestra de estadísticas |
 
-- `HB1`: versión provisional del protocolo.
-- `SEQ`: número secuencial de la medición.
-- `BPM`: frecuencia cardíaca estimada, en pulsaciones por minuto.
-- `IBI`: intervalo entre pulsaciones, en milisegundos.
-- `Q`: indicador de validez; `1` significa válida y `0`, inválida.
+El puente conserva los bytes y el LF de cada línea en orden. Los receptores
+admiten CRLF. Las líneas de más de 128 bytes antes de LF se descartan hasta
+el siguiente LF. Las comprobaciones de campos y secuencia corresponden a Android.
 
-## Transporte inicial
+## Enlace BLE
 
-- UART entre FPGA y ESP32: 115200 baudios, 8N1.
-- Frecuencia prevista: una trama por segundo.
-- Delimitador de trama: salto de línea (`\n`).
-- ESP32 hacia Android: notificaciones de un servicio GATT BLE.
+- Anuncio normal `HealthBand`. El firmware de prueba anuncia `HealthBand-Test`.
+- Servicio `6E400001-B5A3-F393-E0A9-E50E24DCCA9E`.
+- Característica Notify `6E400003-B5A3-F393-E0A9-E50E24DCCA9E`.
+- Los UUID siguen el esquema Nordic UART para TX. El servidor expone
+  únicamente la característica de salida con CCCD estándar.
+- Una notificación lleva hasta MTU − 3 bytes. Con MTU 23, una trama se
+  divide en 20 y 16 bytes. Se suscribe antes de emitir y se reinicia el
+  enlace tras un fallo de notificación para aislar fragmentos parciales.
 
-La codificación de caracteres, el tamaño máximo de trama, los UUID y la
-configuración GATT todavía deben especificarse.
+## Secuencia y reinicio
 
-## Reglas para Android
-
-El receptor debe:
-
-1. Acumular bytes hasta encontrar el salto de línea para reconstruir mensajes
-   fragmentados.
-2. Validar la versión, la presencia de campos, sus tipos y sus rangos una vez
-   que estos sean acordados.
-3. Detectar números de secuencia duplicados, saltos de secuencia y lecturas
-   obsoletas.
-4. Separar una trama inválida de una lectura con `Q=0`, sin convertir ninguna
-   de ellas en un diagnóstico.
-
-Los criterios de recuperación y de reconexión quedan pendientes.
-
-## Emisor FPGA (propuesta de Dani)
-
-Comportamiento implementado en `fpga/rtl/hb1_framer.v`; pendiente de que el
-equipo lo acepte:
-
-- Trama ASCII de 36 bytes terminada solo en `\n` (sin `\r`).
-- Se envía una trama por segundo aunque no haya medición válida.
-- Medición inválida: `BPM=000`, `IBI=0000` y `Q=0`. La FPGA nunca envía un BPM
-  distinto de cero con `Q=0`.
-- Con `Q=1`, `BPM` está entre 030 y 240 e `IBI` entre 0250 y 2000.
-- `SEQ` empieza en `000000` al encender o reiniciar la FPGA, aumenta 1 por
-  trama (también con `Q=0`) y pasa de `999999` a `000000`.
-
-**Reinicio de la FPGA (pendiente de acuerdo con Android).** Tras un reset la
-secuencia vuelve a `000000`. Propuesta: el receptor interpreta `SEQ=000000`
-que no sigue a `999999` como arranque nuevo del emisor, reinicia su control de
-secuencia y abre un segmento nuevo, en lugar de rechazar las tramas como fuera
-de orden.
+El paso 999999 → 000000 es válido. La FPGA arranca en 000000 y HB1 carece de
+identificador de arranque. Tras reiniciar la FPGA, desconecta y vuelve a elegir
+el periférico en Android. El puente elimina las notificaciones pendientes de
+la conexión anterior y Android inicia un parser nuevo. Dentro de un enlace el
+receptor conserva la política circular. La caducidad visual no reinicia SEQ.

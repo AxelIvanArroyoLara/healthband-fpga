@@ -1,0 +1,4 @@
+# Perfil autónomo de integración BLE con 75 BPM y fragmentación forzada.
+CONFIG_HB_TEST_MODE=y
+CONFIG_HB_TEST_75=y
+CONFIG_HB_TEST_FRAGMENT=y

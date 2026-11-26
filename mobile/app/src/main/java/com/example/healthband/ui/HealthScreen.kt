@@ -72,7 +72,11 @@ fun HealthScreen(
             )
 
             Text(
-                text = if (state.isBle) "Fuente Bluetooth LE" else "Fuente simulador",
+                text = when {
+                    !state.isBle -> "Fuente simulador"
+                    state.simulated -> "Fuente Bluetooth LE · prueba"
+                    else -> "Fuente Bluetooth LE"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -148,6 +152,13 @@ fun HealthScreen(
                     )
 
                     Text(state.status.label)
+                    if (state.isBle) {
+                        state.deviceName?.let { Text("Periférico: $it") }
+                        state.bleConfig?.let {
+                            Text("Servicio: ${it.service}", style = MaterialTheme.typography.bodySmall)
+                            Text("Notify: ${it.characteristic}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                     Text(state.ageMs?.let { "Última trama aceptada hace ${it / 1000} s" }
                         ?: "Sin tramas recientes")
 
@@ -156,15 +167,15 @@ fun HealthScreen(
                         text = "Calidad: " +
                                 when {
                                     state.status == ReadingStatus.STALE -> "Datos obsoletos"
-                                    measurement == null -> "Sin datos"
-                                    measurement.isValid -> "Válida"
-                                    else -> "Inválida"
+                                    state.status == ReadingStatus.INVALID -> "Inválida"
+                                    measurement != null -> "Válida"
+                                    else -> "Sin datos"
                                 }
                     )
 
                     Text(
                         text = "Secuencia: " +
-                                (measurement?.sequence ?: "--")
+                                (state.lastSequence ?: "--")
                     )
 
                     Text(
@@ -174,10 +185,9 @@ fun HealthScreen(
 
                     Text("Lecturas guardadas: ${state.persistedCount}")
 
-                    Text(
-                        text = "Errores detectados: " +
-                                state.errorCount
-                    )
+                    Text("Tramas rechazadas: ${state.rejectedCount}")
+                    val transportErrors = state.errorCount - state.rejectedCount
+                    if (transportErrors > 0) Text("Fallos de transporte: $transportErrors")
                 }
             }
 
@@ -226,6 +236,9 @@ fun HealthScreen(
                 }
                 TextButton(onClick = { viewModel.startSimulation(declaredRest = false, sustainedDemo = true) }) {
                     Text("Simular elevación sostenida")
+                }
+                TextButton(onClick = { viewModel.startSimulation(declaredRest = false, communicationErrors = true) }) {
+                    Text("Simular errores de comunicación")
                 }
             }
             BleControls(viewModel, visible = !state.isRunning, declaredRest = declaredRest)

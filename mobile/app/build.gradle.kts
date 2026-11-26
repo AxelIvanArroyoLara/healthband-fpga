@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.testing.Test
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -65,4 +67,12 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// El pipeline compartido entrega bytes UART y notificaciones de la prueba C a la JVM.
+providers.gradleProperty("hb1ContractDir").orNull?.let { directory ->
+    tasks.withType<Test>().configureEach {
+        inputs.dir(directory)
+        systemProperty("hb1ContractDir", directory)
+    }
 }

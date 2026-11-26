@@ -35,7 +35,9 @@ WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/saturation.hex): Not enough wo
 stim/saturation.hex: 3000 muestras, 31 latidos, 19 s con Q=1, 0 errores
 tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
 PASS: 100 tramas HB1 recibidas sin caracteres incorrectos (3600 bytes)
-tb/tb_hb1_uart.v:165: $finish called at 403121990000 (1ps)
+tb/tb_hb1_uart.v:177: $finish called at 403121990000 (1ps)
+PASS: 3 tramas HB1 recibidas sin caracteres incorrectos (108 bytes)
+tb/tb_hb1_uart.v:177: $finish called at 15121990000 (1ps)
 OK   75 BPM estable: SEQ=11 BPM=75 Q=1
 OK   dedo retirado: SEQ=13 BPM=0 Q=0
 OK   recuperacion 75 BPM: SEQ=26 BPM=75 Q=1

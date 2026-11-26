@@ -3,6 +3,7 @@ package com.example.healthband.ui
 import com.example.healthband.analysis.AnomalyReading
 import com.example.healthband.analysis.AnomalyStatus
 import com.example.healthband.analysis.Baseline
+import com.example.healthband.ble.BleConfig
 import com.example.healthband.model.Measurement
 import com.example.healthband.protocol.Hb1Parser
 import com.example.healthband.protocol.ParseResult
@@ -23,6 +24,9 @@ enum class ReadingStatus(val label: String) {
 data class HealthUiState(
     val isRunning: Boolean = false,
     val isBle: Boolean = false,
+    val simulated: Boolean = !isBle,
+    val deviceName: String? = null,
+    val bleConfig: BleConfig? = null,
     val status: ReadingStatus = ReadingStatus.STOPPED,
     val measurement: Measurement? = null,
     val recentBpm: List<Int?> = emptyList(),
@@ -34,8 +38,9 @@ data class HealthUiState(
     val storageError: String? = null,
     val historyBusy: Boolean = false,
     val errorCount: Int = 0,
+    val rejectedCount: Int = 0,
     val lastError: String? = null,
-    private val lastSequence: Long? = null,
+    val lastSequence: Long? = null,
     private val lastAtMs: Long? = null
 ) {
     /** Actualiza la edad y expira la lectura mediante tiempo monotónico. */
@@ -56,7 +61,11 @@ data class HealthUiState(
 
     /** Aplica una trama aceptada o registra el rechazo sin reiniciar su antigüedad. */
     fun receive(result: ParseResult, now: Long, timeoutMs: Long): HealthUiState = when (result) {
-        is ParseResult.Error -> copy(errorCount = errorCount + 1, lastError = result.reason)
+        is ParseResult.Error -> copy(
+            errorCount = errorCount + 1,
+            rejectedCount = rejectedCount + 1,
+            lastError = result.reason
+        )
         is ParseResult.Success -> {
             val reading = result.measurement
             val gap = lastSequence?.let { Hb1Parser.sequenceDistance(it, reading.sequence) > 1 } == true ||

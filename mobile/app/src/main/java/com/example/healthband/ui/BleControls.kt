@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -27,10 +30,11 @@ import com.example.healthband.ble.blePermissions
 @Composable
 fun BleControls(viewModel: HealthViewModel, visible: Boolean, declaredRest: Boolean) {
     val scan by viewModel.bleScanState.collectAsStateWithLifecycle()
-    var service by rememberSaveable { mutableStateOf("") }
-    var characteristic by rememberSaveable { mutableStateOf("") }
+    var service by rememberSaveable { mutableStateOf(BleConfig.default.service.toString()) }
+    var characteristic by rememberSaveable { mutableStateOf(BleConfig.default.characteristic.toString()) }
     var permissionMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var testSource by rememberSaveable { mutableStateOf(false) }
     val config = BleConfig.parse(service, characteristic)
     fun checkAndScan() {
         val reason = viewModel.bleUnavailableReason()
@@ -64,6 +68,10 @@ fun BleControls(viewModel: HealthViewModel, visible: Boolean, declaredRest: Bool
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = testSource, onCheckedChange = { testSource = it })
+                    Text("Fuente BLE sintética (modo prueba o FPGA sintética)")
+                }
                 Button(
                     enabled = config != null && !scan.scanning,
                     onClick = { permissions.launch(blePermissions()) }
@@ -75,7 +83,7 @@ fun BleControls(viewModel: HealthViewModel, visible: Boolean, declaredRest: Bool
                 }
                 if (config != null) {
                     scan.devices.forEach { device ->
-                        TextButton(onClick = { viewModel.connectBle(device, config, declaredRest) }) {
+                        TextButton(onClick = { viewModel.connectBle(device, config, declaredRest, testSource) }) {
                             Text("${device.name} · ${device.address}")
                         }
                     }

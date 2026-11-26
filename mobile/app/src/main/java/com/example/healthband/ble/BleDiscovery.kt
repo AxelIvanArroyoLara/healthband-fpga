@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
 /** Dispositivo encontrado durante un escaneo, retenido solo en memoria. */
-data class BleDevice(val address: String, val name: String)
+data class BleDevice(val address: String, val name: String, val hasAdvertisedName: Boolean = true)
 
 /** Expone los permisos de escaneo en primer plano según la versión de Android. */
 fun blePermissions(): Array<String> = if (Build.VERSION.SDK_INT >= 31) {
@@ -47,8 +47,8 @@ class BleDiscovery(private val context: Context) {
         val scanner = adapter?.bluetoothLeScanner ?: throw BleFailure("Escáner BLE no disponible")
         val callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
-                val name = result.scanRecord?.deviceName ?: "Dispositivo sin nombre"
-                trySend(BleDevice(result.device.address, name))
+                val name = result.scanRecord?.deviceName
+                trySend(BleDevice(result.device.address, name ?: "Dispositivo sin nombre", name != null))
             }
 
             override fun onScanFailed(errorCode: Int) {

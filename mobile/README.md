@@ -33,14 +33,33 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-El APK de depuración queda en `app/build/outputs/apk/debug/app-debug.apk`.
-Ejecuta la configuración `app` de Android Studio o instala el APK con
-`adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+El [paquete de pruebas](artifacts/README.md) incluye el APK debug instalable.
+Desde `mobile/`, conecta un teléfono con depuración USB habilitada y acepta
+su autorización. Comprueba la conexión con `adb devices` y ejecuta
+`adb install -r artifacts/app-debug.apk`. Puedes instalar también desde el
+gestor de archivos del teléfono si autorizas esa fuente.
+
+La compilación genera `app/build/outputs/apk/debug/app-debug.apk`. Ejecuta
+`./gradlew :app:assembleRelease` para generar el APK release, que requiere
+firma antes de la instalación.
+
+Para capturar logs, abre HealthBand y ejecuta desde la terminal:
+
+```sh
+pid=$(adb shell pidof -s com.example.healthband | tr -d '\r')
+test -n "$pid" && adb logcat -d --pid="$pid" > healthband-android.log
+```
+
+Vuelve a obtener el PID si se reinicia la app. Para evidencias compartidas
+utiliza simulación y elimina del log identificadores del teléfono o datos
+personales.
 
 ## Monitor e historial
 
-1. En **Monitor**, pulsa **Iniciar simulación**. La fuente de prueba envía BPM
-   e IBI, tramas fragmentadas, duplicados, tramas incorrectas y lecturas Q=0.
+1. En **Monitor**, pulsa **Iniciar simulación** para recibir lecturas
+   sintéticas válidas. Selecciona **Simular errores de comunicación** para
+   probar duplicados, líneas incorrectas y Q=0. Para usar el puente,
+   detén la simulación y abre **Configurar Bluetooth LE**.
 2. Observa los contadores y la gráfica de hasta 60 posiciones. Q=0 retira los
    valores actuales y marca un corte. Si pasan cuatro segundos sin una trama
    aceptada, el monitor muestra datos obsoletos y conserva la gráfica.
@@ -116,7 +135,9 @@ reposo de al menos 30 segundos cada una. Pulsa **Simular elevación sostenida**
 y espera hasta que se confirme el episodio. La fuente genera 105 BPM durante
 23 muestras a partir de la sexta trama. Detén la sesión y abre el episodio
 en **Historial** para consultar su duración, pico y diferencia respecto a
-la referencia, y para registrar el contexto.
+la referencia. Pulsa **Añadir contexto**, elige la opción y vuelve a abrir
+la sesión para comprobar el guardado. Usa **Eliminar sesión** para probar
+el borrado con una sesión de demostración.
 
 El análisis describe desviaciones estadísticas del reposo. Los contextos son
 anotaciones del usuario y este prototipo carece de validación clínica.
@@ -124,11 +145,12 @@ anotaciones del usuario y este prototipo carece de validación clínica.
 
 ## Configurar el ESP32 real
 
-1. Confirma el modelo con BLE, el UUID del servicio y el UUID de la
-   característica con el equipo del puente. La característica debe admitir
-   notificaciones o indicaciones con descriptor CCCD.
-2. Enciende Bluetooth, abre **Configurar Bluetooth LE** e introduce ambos UUID
-   completos. La app muestra **BLE sin configurar** mientras falte un UUID.
+1. Confirma el modelo ESP32 clásico y el perfil flasheado. La característica
+   de salida admite Notify con descriptor CCCD.
+2. Enciende Bluetooth y abre **Configurar Bluetooth LE**. Los UUID iniciales
+   coinciden con el puente. Puedes editarlos para otro periférico compatible.
+   Marca **Fuente BLE sintética** para PPG sintética desde la FPGA o para
+   un puente de prueba cuando el escaneo no muestre `HealthBand-Test`.
 3. Pulsa **Buscar dispositivos**, concede los permisos solicitados y elige el
    ESP32. El escaneo dura hasta diez segundos y la suscripción hasta quince.
 4. Tras una desconexión, vuelve a seleccionar el periférico para iniciar una
@@ -138,8 +160,9 @@ anotaciones del usuario y este prototipo carece de validación clínica.
    confirmación CCCD se presenta como fallo de conexión. Cuando el descriptor
    ya se confirmó, la terminación se presenta como desconexión.
 
-La política de reinicio del contador dentro de una conexión y los rangos
-definitivos dependen del acuerdo con firmware y FPGA.
+Si reinicias la FPGA, desconecta y vuelve a elegir el periférico.
+El simulador normal emite valores válidos. Usa **Simular errores de
+comunicación** para duplicados, líneas malformadas y Q=0.
 [Contrato HB1 de la app](PROTOCOL.md)
 [Permisos Bluetooth de Android](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions)
 [Conexión GATT en Android](https://developer.android.com/reference/android/bluetooth/BluetoothDevice)
@@ -168,16 +191,15 @@ reportar 0 errores y 11 advertencias de versiones y recursos de plantilla.
 | Error reproducible, gravedad alta | Una transacción retenida en Room impedía publicar una segunda lectura ya disponible. La prueba falló con el código anterior y pasó con la escritura desacoplada. |
 | Riesgo técnico confirmado, gravedad alta | Una excepción de Room recorría el mismo manejo que un fallo de transporte. Una prueba con excepción inyectada confirma que ahora BLE sigue entregando lecturas y Room conserva las transacciones previas. |
 | Riesgo técnico confirmado, gravedad media | Una terminación GATT previa al CCCD figuraba como desconexión y el timeout podía competir con la confirmación. Se separaron los estados y se serializó la confirmación con el timeout. |
-| Limitación pendiente de hardware | Faltan modelo, UUID, configuración GATT y pruebas físicas. El formato provisional HB1 carece de identificador de arranque para reconocer de forma inequívoca un reinicio de la FPGA. |
+| Limitación pendiente de hardware | Faltan confirmar el modelo físico y las pruebas de radio. HB1 carece de identificador de arranque para reconocer de forma inequívoca un reinicio de la FPGA. |
 | Mejora opcional | Un registro de eventos de calidad permitiría atribuir los huecos. Los segmentos y tiempos del esquema actual cubren la gráfica del MVP. |
 
 ### Procedimiento con hardware
 
-1. **ESP32 con datos sintéticos.** Configura el puente con los UUID acordados.
-   Emite 100 tramas válidas a 1 Hz, intercala 10 líneas malformadas y reparte
-   algunas tramas en fragmentos de distintos tamaños. Compara el contador
-   de aceptadas y errores con la secuencia enviada. Agrega por separado un
-   duplicado, un salto y una trama Q=0 para verificar sus efectos.
+1. **ESP32 con datos sintéticos.** Flashea BLE_TEST con fragmentación y
+   registra 100 tramas a 1 Hz. Cambia al escenario Q=0 y verifica el corte
+   de gráfica. Para inyectar duplicados, saltos y líneas malformadas en el
+   puente, usa UART_BRIDGE con adaptador UART y tramas de prueba.
 2. **Interrupción.** Pausa más de cuatro segundos con el enlace vivo. Verifica
    que los valores actuales desaparecen y regresan con la siguiente trama.
    Apaga el periférico, comprueba el estado desconectado y vuelve a
@@ -194,3 +216,5 @@ reportar 0 errores y 11 advertencias de versiones y recursos de plantilla.
    activas. Contrasta tramas UART y lectura visible, provoca pérdida de
    contacto, restablece señal y verifica el cierre y reapertura del historial.
    Usa esta prueba para comprobar el recorrido de datos y la calidad de señal.
+
+[Pruebas de mesa y responsables](../docs/RESPONSIBILITIES.md) · [Reportes de Android](evidence/README.md)
