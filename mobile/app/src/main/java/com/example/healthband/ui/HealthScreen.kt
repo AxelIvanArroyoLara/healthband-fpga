@@ -185,10 +185,9 @@ fun HealthScreen(
 
                     Text("Lecturas guardadas: ${state.persistedCount}")
 
-                    Text(
-                        text = "Errores detectados: " +
-                                state.errorCount
-                    )
+                    Text("Tramas rechazadas: ${state.rejectedCount}")
+                    val transportErrors = state.errorCount - state.rejectedCount
+                    if (transportErrors > 0) Text("Fallos de transporte: $transportErrors")
                 }
             }
 
