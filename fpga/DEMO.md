@@ -6,9 +6,10 @@ falta para esta demo.
 
 ## 1. Conexiones (con la placa apagada)
 
-Todo va al header de 40 pines **JP1 (GPIO)** de la DE10-Lite. El pin 1 está
-marcado en la placa con un "1" o con el pad cuadrado. Los impares (1, 3, 5…)
-van en una fila y los pares (2, 4, 6…) en la otra.
+Todo va al header de 40 pines **JP1 (GPIO)** de la DE10-Lite. El **pin 1 está
+en la última fila, la que queda junto al conector USB** (comprobado en la placa
+con el escáner I²C). Los impares (1, 3, 5…) van en una columna y los pares
+(2, 4, 6…) en la otra; las filas se cuentan desde la del USB.
 
 | Módulo del sensor | JP1 (DE10-Lite) | Qué es |
 | --- | --- | --- |
@@ -19,8 +20,8 @@ van en una fila y los pares (2, 4, 6…) en la otra.
 | INT, IRD, RD | nada | — |
 
 ```text
-          JP1 visto desde arriba, contando desde el pin 1
-          fila impar   fila par
+          JP1 visto desde arriba, contando desde la fila del USB
+          col. impar   col. par
  fila  1:  [ 1] SCL     [ 2] SDA      <- sensor
  fila  2:  [ 3] TX      [ 4] -        (TX va al ESP32, no se usa en esta demo)
  fila  3:  [ 5]         [ 6]
@@ -31,11 +32,15 @@ van en una fila y los pares (2, 4, 6…) en la otra.
  fila 15:  [29] 3.3V    [30] GND      <- sensor VIN y GND
  ...
  fila 20:  [39]         [40]
+            ────── conector USB ──────   (la fila 1 queda de este lado)
 ```
 
 - La serigrafía del módulo dice qué pin es cuál; en el módulo de 7 pines el
   orden normal es `VIN SCL SDA INT IRD RD GND`.
-- No conectar nada del sensor al header Arduino.
+- No conectar nada del sensor al header Arduino (el header pequeño junto a los
+  displays): VIN y GND del sensor van a los pines 29 y 30 del JP1.
+- Verificado el 2026-11-26: con este cableado el MAX30100 responde en los
+  pines 1 y 2 con PART_ID `11`.
 - Si el ESP32 sigue cableado, que solo toque JP1 pin 3 (TX) y GND; nunca los
   pines 1 y 2.
 
@@ -78,6 +83,7 @@ retirado (`---`) y SW4 saturación.
 
 | Síntoma | Revisar |
 | --- | --- |
+| No se sabe si el sensor responde | Cargar `bitstream/i2c_scan.sof` (escáner I²C, ver [`diag/i2c_scan/`](diag/i2c_scan/)): con los switches abajo muestra en qué pines del JP1 está el sensor y su PART_ID (`01 02 11` = correcto). Después volver a cargar `healthband.sof`. |
 | LEDR8 apagado | Cables SCL/SDA invertidos o en otros pines; VIN/GND; el módulo sin alimentar. Con **SW8 arriba**, HEX5..HEX4 deben decir `11` (MAX30100) o `15` (MAX30102); `00` = no hay comunicación. Probar presionando KEY0 (reset). |
 | LEDR8 apagado y cables bien | Algunos módulos morados suben SDA/SCL a 1.8 V. Poner resistencias de 4.7 kΩ de SDA a 3.3 V y de SCL a 3.3 V (pin 29). |
 | LEDR8 encendido pero siempre `---` | Subir SW8: HEX3..HEX0 = IR crudo. Con el dedo debe estar entre `2000` y `F000`. Cerca de `FFFF` → bajar corriente (SW7..SW5 = 001 o 010). Debajo de `1F40` → subir corriente (SW7..SW5 = 101 o 111). LEDR3 encendido = "sin contacto", LEDR2 = saturación, LEDR6 = amplitud baja. |

@@ -8,6 +8,7 @@ en [`../evidence/quartus/`](../evidence/quartus/).
 | --- | --- | --- |
 | `healthband.sof` | Programar la FPGA (se pierde al apagar) | `b31fdf9e65c65aa09a927e8d51c37dbf1306db4f412ba7db3833ee646d841e7e` |
 | `healthband.pof` | Grabar en la memoria flash interna (CFM); queda al apagar | `6e09c1709daf930f9cc4889278f0b3898c9bbe9fe598a11fa8aed18ccddd2e6b` |
+| `i2c_scan.sof` | Diagnóstico: busca el sensor en todos los pines del JP1 ([detalles](../diag/i2c_scan/README.md)) | `788826bed508bd3a6f83e9e5acf1e93c590831d566e58f832e4d9a2a782fd172` |
 
 ## Programar sin compilar
 
