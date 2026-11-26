@@ -1,0 +1,227 @@
+== Estímulos y modelo de referencia
+bpm060        3000 muestras  60 BPM nominal, ruido bajo
+bpm075        3000 muestras  75 BPM nominal, ruido bajo
+bpm100        3000 muestras  100 BPM nominal, ruido bajo
+bpm120        3000 muestras  120 BPM nominal, ruido bajo
+noise075      3000 muestras  75 BPM con ruido y deriva altos
+dicrotic075   3000 muestras  75 BPM con onda dicrotica marcada (60 %)
+doublepeak075  3000 muestras  75 BPM con doble pico casi igual: debe quedar Q=0, nunca BPM falso
+saturation    3000 muestras  75 BPM, IR saturado de 10 s a 15 s
+nocontact     3000 muestras  75 BPM, dedo retirado de 10 s a 15 s
+dropout       3000 muestras  75 BPM, 50 muestras perdidas a los 10 s
+overflow      3000 muestras  75 BPM, fifo_overflow a los 10 s
+flat          2000 muestras  Sin pulso: solo DC, deriva y ruido
+| bpm060 | 60.1 | 60 (Q=1) | 0.51 | 26/30 | 30 / 30 | 0 |
+| bpm075 | 74.9 | 75 (Q=1) | 0.83 | 27/30 | 38 / 37 | 0 |
+| bpm100 | 100.9 | 101 (Q=1) | 0.73 | 27/30 | 50 / 49 | 0 |
+| bpm120 | 119.8 | 121 (Q=1) | 1.39 | 28/30 | 60 / 60 | 0 |
+| dicrotic075 | 74.8 | 75 (Q=1) | 0.74 | 27/30 | 38 / 38 | 0 |
+| doublepeak075 | 74.8 | 0 (Q=0) | - | 0/30 | 38 / 75 | 0 |
+| dropout | 75.2 | 75 (Q=1) | 0.62 | 22/30 | 37 / 36 | 0 |
+| flat | sin pulso (Q=0) | 0 (Q=0) | - | 0/20 | 0 / 5 | 0 |
+| nocontact | 75.0 | 75 (Q=1) | 0.74 | 19/30 | 38 / 32 | 0 |
+| noise075 | 74.9 | 75 (Q=1) | 0.92 | 27/30 | 38 / 38 | 0 |
+| overflow | 74.7 | 75 (Q=1) | 0.84 | 24/30 | 38 / 38 | 0 |
+| saturation | 75.0 | 75 (Q=1) | 0.32 | 19/30 | 38 / 31 | 0 |
+== tb_ppg_processor (procesamiento con señales sintéticas)
+rtl/bin_to_bcd.v:6: warning: timescale for bin_to_bcd inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/ppg_filter.v:12: warning: timescale for ppg_filter inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/pulse_detector.v:14: warning: timescale for pulse_detector inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/bpm_calc.v:14: warning: timescale for bpm_calc inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/ppg_processor.v:16: warning: timescale for ppg_processor inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/uart_tx.v:6: warning: timescale for uart_tx inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/hb1_framer.v:16: warning: timescale for hb1_framer inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/seg7_bpm.v:6: warning: timescale for seg7_bpm inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/ppg_synth.v:15: warning: timescale for ppg_synth inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/i2c_master.v:17: warning: timescale for i2c_master inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/max30100_ctrl.v:28: warning: timescale for max30100_ctrl inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+rtl/healthband_top.v:32: warning: timescale for healthband_top inherited from another file.
+tb/tb_ppg_processor.v:17: ...: The inherited timescale is here.
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/bpm060.hex): Not enough words in the file for the requested range [0:4095].
+stim/bpm060.hex: 3000 muestras, 30 latidos, 26 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/bpm075.hex): Not enough words in the file for the requested range [0:4095].
+stim/bpm075.hex: 3000 muestras, 37 latidos, 27 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/bpm100.hex): Not enough words in the file for the requested range [0:4095].
+stim/bpm100.hex: 3000 muestras, 49 latidos, 27 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/bpm120.hex): Not enough words in the file for the requested range [0:4095].
+stim/bpm120.hex: 3000 muestras, 60 latidos, 28 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/dicrotic075.hex): Not enough words in the file for the requested range [0:4095].
+stim/dicrotic075.hex: 3000 muestras, 38 latidos, 27 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/doublepeak075.hex): Not enough words in the file for the requested range [0:4095].
+stim/doublepeak075.hex: 3000 muestras, 75 latidos, 0 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/dropout.hex): Not enough words in the file for the requested range [0:4095].
+stim/dropout.hex: 3000 muestras, 36 latidos, 22 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/flat.hex): Not enough words in the file for the requested range [0:4095].
+stim/flat.hex: 2000 muestras, 5 latidos, 0 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 2560100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/nocontact.hex): Not enough words in the file for the requested range [0:4095].
+stim/nocontact.hex: 3000 muestras, 32 latidos, 19 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/noise075.hex): Not enough words in the file for the requested range [0:4095].
+stim/noise075.hex: 3000 muestras, 38 latidos, 27 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/overflow.hex): Not enough words in the file for the requested range [0:4095].
+stim/overflow.hex: 3000 muestras, 38 latidos, 24 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+WARNING: tb/tb_ppg_processor.v:92: $readmemh(stim/saturation.hex): Not enough words in the file for the requested range [0:4095].
+stim/saturation.hex: 3000 muestras, 31 latidos, 19 s con Q=1, 0 errores
+tb/tb_ppg_processor.v:130: $finish called at 3840100000 (1ps)
+| bpm060 | 30 / 30 | 30 / 30 | 0 | PASS |
+| bpm075 | 37 / 37 | 30 / 30 | 0 | PASS |
+| bpm100 | 49 / 49 | 30 / 30 | 0 | PASS |
+| bpm120 | 60 / 60 | 30 / 30 | 0 | PASS |
+| dicrotic075 | 38 / 38 | 30 / 30 | 0 | PASS |
+| doublepeak075 | 75 / 75 | 30 / 30 | 0 | PASS |
+| dropout | 36 / 36 | 30 / 30 | 0 | PASS |
+| flat | 5 / 5 | 20 / 20 | 0 | PASS |
+| nocontact | 32 / 32 | 30 / 30 | 0 | PASS |
+| noise075 | 38 / 38 | 30 / 30 | 0 | PASS |
+| overflow | 38 / 38 | 30 / 30 | 0 | PASS |
+| saturation | 31 / 31 | 30 / 30 | 0 | PASS |
+== tb_hb1_uart (100 tramas a 115200 8N1)
+rtl/bin_to_bcd.v:6: warning: timescale for bin_to_bcd inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/ppg_filter.v:12: warning: timescale for ppg_filter inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/pulse_detector.v:14: warning: timescale for pulse_detector inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/bpm_calc.v:14: warning: timescale for bpm_calc inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/ppg_processor.v:16: warning: timescale for ppg_processor inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/uart_tx.v:6: warning: timescale for uart_tx inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/hb1_framer.v:16: warning: timescale for hb1_framer inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/seg7_bpm.v:6: warning: timescale for seg7_bpm inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/ppg_synth.v:15: warning: timescale for ppg_synth inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/i2c_master.v:17: warning: timescale for i2c_master inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/max30100_ctrl.v:28: warning: timescale for max30100_ctrl inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/healthband_top.v:32: warning: timescale for healthband_top inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+PASS: 100 tramas HB1 recibidas sin caracteres incorrectos (3600 bytes)
+tb/tb_hb1_uart.v:177: $finish called at 403121990000 (1ps)
+rtl/bin_to_bcd.v:6: warning: timescale for bin_to_bcd inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/ppg_filter.v:12: warning: timescale for ppg_filter inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/pulse_detector.v:14: warning: timescale for pulse_detector inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/bpm_calc.v:14: warning: timescale for bpm_calc inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/ppg_processor.v:16: warning: timescale for ppg_processor inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/uart_tx.v:6: warning: timescale for uart_tx inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/hb1_framer.v:16: warning: timescale for hb1_framer inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/seg7_bpm.v:6: warning: timescale for seg7_bpm inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/ppg_synth.v:15: warning: timescale for ppg_synth inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/i2c_master.v:17: warning: timescale for i2c_master inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/max30100_ctrl.v:28: warning: timescale for max30100_ctrl inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+rtl/healthband_top.v:32: warning: timescale for healthband_top inherited from another file.
+tb/tb_hb1_uart.v:16: ...: The inherited timescale is here.
+PASS: 3 tramas HB1 recibidas sin caracteres incorrectos (108 bytes)
+tb/tb_hb1_uart.v:177: $finish called at 15121990000 (1ps)
+== tb_healthband_top (sistema completo con generador sintético)
+rtl/bin_to_bcd.v:6: warning: timescale for bin_to_bcd inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/ppg_filter.v:12: warning: timescale for ppg_filter inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/pulse_detector.v:14: warning: timescale for pulse_detector inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/bpm_calc.v:14: warning: timescale for bpm_calc inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/ppg_processor.v:16: warning: timescale for ppg_processor inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/uart_tx.v:6: warning: timescale for uart_tx inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/hb1_framer.v:16: warning: timescale for hb1_framer inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/seg7_bpm.v:6: warning: timescale for seg7_bpm inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/ppg_synth.v:15: warning: timescale for ppg_synth inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/i2c_master.v:17: warning: timescale for i2c_master inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/max30100_ctrl.v:28: warning: timescale for max30100_ctrl inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+rtl/healthband_top.v:32: warning: timescale for healthband_top inherited from another file.
+tb/tb_healthband_top.v:19: ...: The inherited timescale is here.
+OK   75 BPM estable: SEQ=11 BPM=75 Q=1
+OK   dedo retirado: SEQ=13 BPM=0 Q=0
+OK   recuperacion 75 BPM: SEQ=26 BPM=75 Q=1
+OK   120 BPM con ruido: SEQ=36 BPM=120 Q=1
+OK   saturacion: SEQ=38 BPM=0 Q=0
+PASS: 39 tramas, SEQ continuo, sin errores
+tb/tb_healthband_top.v:177: $finish called at 449640190000 (1ps)
+== tb_max30100_top (sistema completo con el MAX30100 por I2C, modelo del sensor)
+rtl/bin_to_bcd.v:6: warning: timescale for bin_to_bcd inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/ppg_filter.v:12: warning: timescale for ppg_filter inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/pulse_detector.v:14: warning: timescale for pulse_detector inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/bpm_calc.v:14: warning: timescale for bpm_calc inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/ppg_processor.v:16: warning: timescale for ppg_processor inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/uart_tx.v:6: warning: timescale for uart_tx inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/hb1_framer.v:16: warning: timescale for hb1_framer inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/seg7_bpm.v:6: warning: timescale for seg7_bpm inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/ppg_synth.v:15: warning: timescale for ppg_synth inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/i2c_master.v:17: warning: timescale for i2c_master inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/max30100_ctrl.v:28: warning: timescale for max30100_ctrl inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+rtl/healthband_top.v:32: warning: timescale for healthband_top inherited from another file.
+tb/max30100_model.v:16: ...: The inherited timescale is here.
+OK   LEDR[8] sensor configurado
+OK   MODE = 0x03 (SpO2)
+OK   SPO2_CONFIG = 0x47 (100 Hz, 16 bits)
+OK   LED_CONFIG = 0x77 (24 mA)
+OK   PART_ID = 0x11
+OK   un reset del sensor al arrancar
+OK   HEX5..HEX4 muestran 11 (PART_ID)
+OK   LED_CONFIG = 0xBB al mover SW[7:5]
+OK   72 BPM sensor: SEQ=9 BPM=72 Q=1
+OK   dedo retirado: SEQ=12 BPM=0 Q=0
+OK   90 BPM sensor: SEQ=22 BPM=90 Q=1
+OK   sensor desconectado: SEQ=24 BPM=0 Q=0
+OK   LEDR[8] apagado sin sensor
+OK   reconectado 90 BPM: SEQ=34 BPM=90 Q=1
+OK   LEDR[8] encendido al reconectar
+OK   reconfigurado tras reconexion
+PASS: 35 tramas, 3490 muestras del sensor, SEQ continuo, sin errores
+tb/tb_max30100_top.v:225: $finish called at 809424190000 (1ps)
+Todas las simulaciones pasaron. Evidencias en fpga/evidence/rtl/

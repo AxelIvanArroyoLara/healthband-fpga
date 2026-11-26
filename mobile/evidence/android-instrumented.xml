@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="15" failures="0" errors="0" skipped="0" time="0.000" timestamp="2026-11-26T03:42:59">
+  <testsuite name="com.example.healthband.ExampleInstrumentedTest" tests="1" failures="0" errors="0" skipped="0" time="0.000" timestamp="2026-11-26T03:42:59">
+    <properties>
+      <property name="device" value="emulator-5556" />
+    </properties>
+    <testcase name="useAppContext" classname="com.example.healthband.ExampleInstrumentedTest" time="0.000" />
+  </testsuite>
+  <testsuite name="com.example.healthband.history.HistoryRepositoryTest" tests="3" failures="0" errors="0" skipped="0" time="1.207" timestamp="2026-11-26T03:42:59">
+    <properties>
+      <property name="device" value="emulator-5556" />
+    </properties>
+    <testcase name="migrationFromVersionOnePreservesSessionsAndSamples" classname="com.example.healthband.history.HistoryRepositoryTest" time="0.645" />
+    <testcase name="baselineExcludesOtherSourcesAndEpisodesAndPreservesAnnotations" classname="com.example.healthband.history.HistoryRepositoryTest" time="0.345" />
+    <testcase name="sessionSurvivesReopeningAndDeletionCascades" classname="com.example.healthband.history.HistoryRepositoryTest" time="0.217" />
+  </testsuite>
+  <testsuite name="com.example.healthband.integration.AcquisitionTest" tests="10" failures="0" errors="0" skipped="0" time="10.342" timestamp="2026-11-26T03:42:59">
+    <properties>
+      <property name="device" value="emulator-5556" />
+    </properties>
+    <testcase name="interruptedTransportExpiresAndCanReconnectWithFreshParser" classname="com.example.healthband.integration.AcquisitionTest" time="0.315" />
+    <testcase name="simulatorPersistsSustainedEpisodeUsingCalibratedHistory" classname="com.example.healthband.integration.AcquisitionTest" time="1.947" />
+    <testcase name="queueOverflowKeepsLiveReadingsAndStoresOnlyBoundedPrefix" classname="com.example.healthband.integration.AcquisitionTest" time="1.398" />
+    <testcase name="roomWriteLockDoesNotDelayLiveReading" classname="com.example.healthband.integration.AcquisitionTest" time="0.458" />
+    <testcase name="storageFailureKeepsBleReadingsAndCommittedPrefix" classname="com.example.healthband.integration.AcquisitionTest" time="0.122" />
+    <testcase name="historyBreaksAtInvalidQualitySequenceGapAndStaleReading" classname="com.example.healthband.integration.AcquisitionTest" time="0.338" />
+    <testcase name="stopCancelsAnUnfinishedWriteAfterDrainTimeout" classname="com.example.healthband.integration.AcquisitionTest" time="5.263" />
+    <testcase name="syntheticBleUsesSimulatedBaselineAndResetsOnSequenceGap" classname="com.example.healthband.integration.AcquisitionTest" time="0.460" />
+    <testcase name="ownerCancellationReleasesSourceAndDiscardsUncommittedWork" classname="com.example.healthband.integration.AcquisitionTest" time="0.012" />
+    <testcase name="stoppingDuringWriteAllowsOneImmediateRestartWithSeparateRoomSessions" classname="com.example.healthband.integration.AcquisitionTest" time="0.029" />
+  </testsuite>
+  <testsuite name="com.example.healthband.integration.MonitorScreenTest" tests="1" failures="0" errors="0" skipped="0" time="6.426" timestamp="2026-11-26T03:42:59">
+    <properties>
+      <property name="device" value="emulator-5556" />
+    </properties>
+    <testcase name="runningSimulationSurvivesRecreationAndAppearsInHistory" classname="com.example.healthband.integration.MonitorScreenTest" time="6.426" />
+  </testsuite>
+</testsuites>

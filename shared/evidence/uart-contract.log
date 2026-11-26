@@ -1,0 +1,2 @@
+PASS: 100 tramas HB1 recibidas sin caracteres incorrectos (3600 bytes)
+fpga/tb/tb_hb1_uart.v:177: $finish called at 403121990000 (1ps)

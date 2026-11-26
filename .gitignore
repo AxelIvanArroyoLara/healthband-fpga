@@ -88,3 +88,10 @@ data/physiological/
 
 # Archivo local exportado por Android Studio
 /mobile.zip
+
+# Entregables locales distribuidos mediante ZIP. README y sumas se versionan.
+/esp32/artifacts/*/*.bin
+/esp32/artifacts/*/*.elf
+/esp32/artifacts/*/bootloader/*.bin
+/esp32/artifacts/*/partition_table/*.bin
+/deliverables/

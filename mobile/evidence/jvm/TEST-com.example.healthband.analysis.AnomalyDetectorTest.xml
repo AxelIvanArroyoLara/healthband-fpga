@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.healthband.analysis.AnomalyDetectorTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-26T03:43:52.496Z" time="0.008">
+  <properties/>
+  <testcase name="sparseInvalidAndMissingSignalCannotBridgeAWindow" classname="com.example.healthband.analysis.AnomalyDetectorTest" time="0.001"/>
+  <testcase name="sustainedElevationIsConfirmedAtFifteenSecondsAndTracksDuration" classname="com.example.healthband.analysis.AnomalyDetectorTest" time="0.0"/>
+  <testcase name="absoluteRelativeAndMadThresholdsEachCanDominate" classname="com.example.healthband.analysis.AnomalyDetectorTest" time="0.0"/>
+  <testcase name="stableNoiseAndShortSpikeNeverConfirm" classname="com.example.healthband.analysis.AnomalyDetectorTest" time="0.005"/>
+  <testcase name="calibrationRequiresIndependentSessionsAndResistsOutliers" classname="com.example.healthband.analysis.AnomalyDetectorTest" time="0.001"/>
+  <testcase name="aNewSessionRecalculatesBaselineAndDoesNotInheritAnElevatedWindow" classname="com.example.healthband.analysis.AnomalyDetectorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
