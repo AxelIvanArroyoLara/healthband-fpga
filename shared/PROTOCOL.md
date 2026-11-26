@@ -43,3 +43,22 @@ El receptor debe:
    de ellas en un diagnóstico.
 
 Los criterios de recuperación y de reconexión quedan pendientes.
+
+## Emisor FPGA (propuesta de Dani)
+
+Comportamiento implementado en `fpga/rtl/hb1_framer.v`; pendiente de que el
+equipo lo acepte:
+
+- Trama ASCII de 36 bytes terminada solo en `\n` (sin `\r`).
+- Se envía una trama por segundo aunque no haya medición válida.
+- Medición inválida: `BPM=000`, `IBI=0000` y `Q=0`. La FPGA nunca envía un BPM
+  distinto de cero con `Q=0`.
+- Con `Q=1`, `BPM` está entre 030 y 240 e `IBI` entre 0250 y 2000.
+- `SEQ` empieza en `000000` al encender o reiniciar la FPGA, aumenta 1 por
+  trama (también con `Q=0`) y pasa de `999999` a `000000`.
+
+**Reinicio de la FPGA (pendiente de acuerdo con Android).** Tras un reset la
+secuencia vuelve a `000000`. Propuesta: el receptor interpreta `SEQ=000000`
+que no sigue a `999999` como arranque nuevo del emisor, reinicia su control de
+secuencia y abre un segmento nuevo, en lugar de rechazar las tramas como fuera
+de orden.
