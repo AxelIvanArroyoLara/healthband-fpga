@@ -1,0 +1,18 @@
+OK   LEDR[8] sensor configurado
+OK   MODE = 0x03 (SpO2)
+OK   SPO2_CONFIG (100 Hz)
+OK   corriente de LEDs 0x77 (24 mA)
+OK   LED IR 0x0D = 0x77 (MAX30102)
+OK   FIFO_CONFIG = 0x00 (MAX30102)
+OK   un reset del sensor al arrancar
+OK   HEX5..HEX4 muestran el PART_ID
+OK   HEX3..HEX0 muestran el IR crudo
+OK   LEDs = 0xBB al mover SW[7:5]
+OK   72 BPM sensor: SEQ=9 BPM=72 Q=1
+OK   dedo retirado: SEQ=12 BPM=0 Q=0
+PASS (compuertas): 13 tramas, 1301 muestras
+
+Netlist: quartus_eda --simulation --tool=modelsim --format=verilog --functional=on
+Proyecto: sim/gate (gate_top = healthband_top con CLK_HZ 345600, I2C_HZ 28800)
+Simulador: Icarus Verilog con fiftyfivenm_atoms.v y altera_primitives.v de
+Quartus 21.1.1 + sim/gate/sim_stubs.v (buffers de E/S cifrados).

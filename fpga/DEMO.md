@@ -39,15 +39,22 @@ van en una fila y los pares (2, 4, 6…) en la otra.
 - Si el ESP32 sigue cableado, que solo toque JP1 pin 3 (TX) y GND; nunca los
   pines 1 y 2.
 
-## 2. Compilar y programar
+## 2. Programar
+
+**No hace falta compilar:** el archivo ya compilado (Quartus 21.1.1, sin
+errores) está en [`bitstream/healthband.sof`](bitstream/). Quartus →
+Tools → Programmer → Hardware Setup: **USB-Blaster** → Add File →
+`bitstream/healthband.sof` → marcar Program/Configure → **Start**. Ver
+[`bitstream/README.md`](bitstream/README.md).
+
+Si se cambia el Verilog, recompilar:
 
 1. Quartus Prime Lite → File → Open Project → `fpga/quartus/healthband.qpf`.
 2. Processing → Start Compilation (unos 2 minutos). Debe terminar sin errores.
-3. Tools → Programmer → Hardware Setup: **USB-Blaster** → archivo
-   `output_files/healthband.sof` → marcar Program/Configure → **Start**.
+3. Programar `quartus/output_files/healthband.sof` igual que arriba.
 
 El `.sof` se borra al apagar la placa. Para que quede grabado, programar
-`output_files/healthband.pof` (modo CFM) en lugar del `.sof`.
+`bitstream/healthband.pof` (fila CFM0) en lugar del `.sof`.
 
 ## 3. Prueba con el sensor (todos los switches abajo)
 

@@ -19,7 +19,7 @@ FPGA → ESP32 → app sin el sensor.
 | UART 115200 8N1 + trama HB1 | RTL escrito, testbench de 100 tramas listo |
 | Top-level DE10-Lite, displays, LEDs, QSF/SDC | RTL escrito |
 | Simulación RTL | Corrida con Icarus (`sim/run_icarus.sh`): todos los testbenches pasan, incluido `tb_max30100_top`. Evidencias en [`evidence/rtl/`](evidence/rtl/) |
-| Compilación Quartus, TimeQuest, potencia | Pendiente (recompilar: el `.sof` anterior no conectaba el I²C a los pines) |
+| Compilación Quartus, TimeQuest | Compilado con Quartus 21.1.1 Lite sin errores; tiempos cumplidos (Fmax 68 MHz). `.sof`/`.pof` listos en [`bitstream/`](bitstream/); reporte y simulación del netlist post-síntesis en [`evidence/quartus/`](evidence/quartus/). Potencia pendiente |
 | Controlador I²C del MAX30100/MAX30102 (`i2c_master` + `max30100_ctrl`) | RTL escrito y simulado con modelos I²C de ambos sensores (`tb_max30100_top`, `IS102` = 0/1): configuración, lectura del FIFO por punteros, dedo retirado, desconexión y reconexión. Pendiente probar en la placa. Ver [Conectar el MAX30100](#conectar-el-max30100) |
 
 ## Estructura
