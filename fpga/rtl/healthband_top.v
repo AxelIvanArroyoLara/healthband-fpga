@@ -121,6 +121,7 @@ module healthband_top #(
         .part_id       (part_id),
         .scl_oe        (scl_oe),
         .sda_oe        (sda_oe),
+        .is_max30102   (),
         .sda_in        (GPIO[1])
     );
 
@@ -155,6 +156,19 @@ module healthband_top #(
         .beat_valid     (beat_valid),
         .data_valid     (data_valid),
         .signal_quality (signal_quality)
+    );
+
+    // Grabador de depuración (~41 s de muestras), se lee por JTAG.
+    ppg_logger u_logger (
+        .clk           (clk),
+        .reset_n       (reset_n),
+        .sample_valid  (sample_valid),
+        .ir_sample     (ir_sample),
+        .beat          (beat_valid),
+        .fifo_overflow (fifo_overflow),
+        .data_valid    (data_valid),
+        .quality       (signal_quality),
+        .bpm           (bpm)
     );
 
     // Trama HB1 por UART.

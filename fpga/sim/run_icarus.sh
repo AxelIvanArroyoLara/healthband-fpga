@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."   # fpga/
 
 RTL="rtl/bin_to_bcd.v rtl/ppg_filter.v rtl/pulse_detector.v rtl/bpm_calc.v
      rtl/ppg_processor.v rtl/uart_tx.v rtl/hb1_framer.v rtl/seg7_bpm.v
-     rtl/ppg_synth.v rtl/i2c_master.v rtl/max30100_ctrl.v rtl/healthband_top.v"
+     rtl/ppg_synth.v rtl/i2c_master.v rtl/max30100_ctrl.v rtl/ppg_logger.v rtl/healthband_top.v"
 BUILD=build/sim
 OUT=evidence/rtl
 mkdir -p "$BUILD" "$OUT"
@@ -54,5 +54,9 @@ run_simulation "$BUILD/tb_healthband_top.vvp" +FRAMES_OUT="$OUT/top_frames.txt"
 echo "== tb_max30100_top (sistema completo con el MAX30100 por I2C, modelo del sensor)"
 iverilog -g2005 -Wall -o "$BUILD/tb_max30100_top.vvp" tb/tb_max30100_top.v tb/max30100_model.v $RTL
 run_simulation "$BUILD/tb_max30100_top.vvp" +FRAMES_OUT="$OUT/max30100_frames.txt"
+
+echo "== tb_max30100_top con el modelo del MAX30102 (mismos módulos, otro mapa de registros)"
+iverilog -g2005 -Wall -P tb_max30100_top.IS102=1 -o "$BUILD/tb_max30102_top.vvp" tb/tb_max30100_top.v tb/max30100_model.v $RTL
+run_simulation "$BUILD/tb_max30102_top.vvp" +FRAMES_OUT="$OUT/max30102_frames.txt"
 
 echo "Todas las simulaciones pasaron. Evidencias en fpga/$OUT/"

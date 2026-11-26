@@ -9,6 +9,8 @@ Las muestras vienen del MAX30100 real por I²C (`max30100_ctrl`, SW9 = 0) o
 de un generador sintético (`ppg_synth`, SW9 = 1) para probar la cadena
 FPGA → ESP32 → app sin el sensor.
 
+**Para la demostración con la placa ver [`DEMO.md`](DEMO.md)** (conexiones, programación y diagnóstico).
+
 ## Estado
 
 | Parte | Estado |
@@ -17,8 +19,8 @@ FPGA → ESP32 → app sin el sensor.
 | UART 115200 8N1 + trama HB1 | RTL escrito, testbench de 100 tramas listo |
 | Top-level DE10-Lite, displays, LEDs, QSF/SDC | RTL escrito |
 | Simulación RTL | Corrida con Icarus (`sim/run_icarus.sh`): todos los testbenches pasan, incluido `tb_max30100_top`. Evidencias en [`evidence/rtl/`](evidence/rtl/) |
-| Compilación Quartus, TimeQuest, potencia | Pendiente (recompilar: el `.sof` anterior no conectaba el I²C a los pines) |
-| Controlador I²C del MAX30100 (`i2c_master` + `max30100_ctrl`) | RTL escrito y simulado con un modelo I²C del sensor (`tb_max30100_top`): configuración, lectura del FIFO por punteros, dedo retirado, desconexión y reconexión. Pendiente probar en la placa. Ver [Conectar el MAX30100](#conectar-el-max30100) |
+| Compilación Quartus, TimeQuest | Compilado con Quartus 21.1.1 Lite sin errores; tiempos cumplidos (Fmax 68 MHz). `.sof`/`.pof` listos en [`bitstream/`](bitstream/); reporte y simulación del netlist post-síntesis en [`evidence/quartus/`](evidence/quartus/). Potencia pendiente |
+| Controlador I²C del MAX30100/MAX30102 (`i2c_master` + `max30100_ctrl`) | RTL escrito y simulado con modelos I²C de ambos sensores (`tb_max30100_top`, `IS102` = 0/1): configuración, lectura del FIFO por punteros, dedo retirado, desconexión y reconexión. Pendiente probar en la placa. Ver [Conectar el MAX30100](#conectar-el-max30100) |
 
 ## Estructura
 
@@ -35,7 +37,7 @@ fpga/
 │   ├── seg7_bpm.v       BPM en HEX2..HEX0
 │   ├── ppg_synth.v      Generador PPG sintético sintetizable
 │   ├── i2c_master.v     Maestro I²C por bytes (open drain)
-│   ├── max30100_ctrl.v  Configura el MAX30100 y lee su FIFO a 100 muestras/s
+│   ├── max30100_ctrl.v  Detecta MAX30100/MAX30102, lo configura y lee su FIFO a 100 muestras/s
 │   ├── healthband_top.v Top-level de la DE10-Lite
 │   └── old_sebas/       Borradores anteriores del I²C (solo referencia, no se compilan)
 ├── tb/                  Testbenches
@@ -188,7 +190,7 @@ Evidencias que quedan en `evidence/rtl/`: CSV de latidos y por segundo,
 | SW | Función |
 | --- | --- |
 | SW9 | Fuente: 0 = MAX30100 (sensor real), 1 = generador sintético |
-| SW8 | Display de depuración: HEX3..HEX0 = IR crudo en hexadecimal, HEX5..HEX4 = PART_ID del sensor (debe decir `11`) |
+| SW8 | Display de depuración: HEX3..HEX0 = IR crudo en hexadecimal, HEX5..HEX4 = PART_ID del sensor (`11` = MAX30100, `15` = MAX30102; `00` = no hay comunicación I²C) |
 | SW7..SW5 | Corriente de los LEDs del sensor: 000 = 24 mA (por defecto), 001 = 11, 010 = 17.4, 011 = 24, 100 = 30.6, 101 = 37, 110 = 43.6, 111 = 50 mA |
 | SW1..SW0 | Solo sintético: BPM 00 = 60, 01 = 75, 10 = 100, 11 = 120 |
 | SW2 | Solo sintético: ruido |
@@ -234,8 +236,12 @@ Notas:
   comprueba niveles, reposo y tiempos de subida con analizador lógico.
 - Identifica en el breakout las alimentaciones y el rail de los pull-ups.
   Mide SDA/SCL en reposo y verifica umbrales de ambos extremos antes de
-  decidir si se necesita adaptar niveles.
-- Diagnóstico rápido con SW8 = 1: si HEX5..HEX4 muestran `11` el I²C funciona.
+  decidir si se necesita adaptar niveles. Algunos módulos morados
+  "GY-MAX30100" suben SDA/SCL a 1.8 V con su regulador interno; si LEDR8
+  nunca enciende, la solución común es quitar esos pull-ups (o puentearlos
+  a 3.3 V) y dejar los de la FPGA o poner 4.7 kΩ externas a 3.3 V.
+- Diagnóstico rápido con SW8 = 1: si HEX5..HEX4 muestran `11` (MAX30100) o
+  `15` (MAX30102) el I²C funciona.
   Con el dedo puesto el IR crudo (HEX3..HEX0) debe estar más o menos entre
   `2000` y `F000` (8 000–61 000) y variar un poco con el pulso. Si está cerca de
   `FFFF` (saturado) bajar la corriente con SW7..SW5; si es menor que `1F40`
@@ -243,6 +249,11 @@ Notas:
   (`CONTACT_MIN`, `SAT_LEVEL`).
 - Si el sensor se desconecta, `max30100_ctrl` lo reintenta cada 100 ms y lo
   reconfigura solo al volver.
+- Muchos módulos vendidos como "MAX30100" traen un MAX30102 (mismos 7 pines).
+  `max30100_ctrl` lee el PART_ID y usa el mapa de registros que corresponde;
+  del MAX30102 toma los 16 bits altos de la muestra de 18 bits.
+- Alimentar el módulo con **3.3 V, no con 5 V**: en varios módulos los pull-up
+  de SDA/SCL van a VIN y con 5 V meterían 5 V a los pines de la FPGA.
 
 ## Pendientes
 

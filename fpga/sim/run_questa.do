@@ -38,4 +38,8 @@ vsim -c -onfinish stop work.tb_max30100_top +FRAMES_OUT=evidence/rtl/max30100_fr
 run -all
 quit -sim
 
+vsim -c -onfinish stop -gIS102=1 work.tb_max30100_top +FRAMES_OUT=evidence/rtl/max30102_frames.txt
+run -all
+quit -sim
+
 quit -f

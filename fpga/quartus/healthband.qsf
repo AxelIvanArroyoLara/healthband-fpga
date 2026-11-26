@@ -23,6 +23,7 @@ set_global_assignment -name VERILOG_FILE ../rtl/seg7_bpm.v
 set_global_assignment -name VERILOG_FILE ../rtl/ppg_synth.v
 set_global_assignment -name VERILOG_FILE ../rtl/i2c_master.v
 set_global_assignment -name VERILOG_FILE ../rtl/max30100_ctrl.v
+set_global_assignment -name VERILOG_FILE ../rtl/ppg_logger.v
 set_global_assignment -name VERILOG_FILE ../rtl/healthband_top.v
 set_global_assignment -name SDC_FILE healthband.sdc
 

@@ -1,4 +1,5 @@
 // tb_max30100_top
+// (Con -P tb_max30100_top.IS102=1 se prueba igual con el modelo del MAX30102.)
 // Prueba de sistema del top-level con el sensor real (SW[9] = 0):
 // MAX30100 (modelo I2C) -> max30100_ctrl -> ppg_processor -> hb1_framer
 // -> uart_tx -> pin GPIO[2]. Decodifica las tramas como lo haría el ESP32.
@@ -24,6 +25,10 @@ module tb_max30100_top;
     parameter CLK_HZ = 1_152_000;
     parameter BAUD   = 115_200;
     parameter I2C_HZ = 48_000;
+    parameter IS102  = 0;          // 1 = probar con el modelo del MAX30102
+
+    localparam [7:0] PART = IS102 ? 8'h15 : 8'h11;
+    localparam [7:0] SPO2 = IS102 ? 8'h67 : 8'h47;
 
     localparam BIT_CLKS = (CLK_HZ + BAUD / 2) / BAUD;
 
@@ -58,7 +63,8 @@ module tb_max30100_top;
     );
 
     max30100_model #(
-        .SAMPLE_CLKS (CLK_HZ / 100 * 1005 / 1000)
+        .SAMPLE_CLKS (CLK_HZ / 100 * 1005 / 1000),
+        .IS102       (IS102)
     ) sensor (
         .clk (clk),
         .scl (gpio[0]),
@@ -178,19 +184,24 @@ module tb_max30100_top;
         wait_seconds(1);
         check(ledr[8] == 1'b1,              "LEDR[8] sensor configurado");
         check(sensor.mode_reg  == 8'h03,    "MODE = 0x03 (SpO2)");
-        check(sensor.spo2_reg  == 8'h47,    "SPO2_CONFIG = 0x47 (100 Hz, 16 bits)");
-        check(sensor.led_reg   == 8'h77,    "LED_CONFIG = 0x77 (24 mA)");
-        check(dut.part_id      == 8'h11,    "PART_ID = 0x11");
+        check(sensor.spo2_reg  == SPO2,     "SPO2_CONFIG (100 Hz)");
+        check(sensor.led_reg   == 8'h77,    "corriente de LEDs 0x77 (24 mA)");
+        check(!IS102 || sensor.led2_reg == 8'h77, "LED IR 0x0D = 0x77 (MAX30102)");
+        check(!IS102 || sensor.fcfg_reg == 8'h00, "FIFO_CONFIG = 0x00 (MAX30102)");
+        check(dut.part_id      == PART,     "PART_ID leido");
+        check(dut.u_max.is_max30102 == IS102, "tipo de sensor detectado");
         check(sensor.n_resets  == 1,        "un reset del sensor al arrancar");
 
         sw[8] = 1'b1;                       // display de depuración
         repeat (CLK_HZ / 20) @(posedge clk);
-        check(hex5 == 8'hF9 && hex4 == 8'hF9, "HEX5..HEX4 muestran 11 (PART_ID)");
+        check(hex5 == 8'hF9 && hex4 == (IS102 ? 8'h92 : 8'hF9), "HEX5..HEX4 muestran el PART_ID");
+        check(hex3 != 8'hFF,                "HEX3..HEX0 muestran el IR crudo");
         sw[8] = 1'b0;
 
         sw[7:5] = 3'b101;                   // 37 mA
         repeat (CLK_HZ / 20) @(posedge clk);
-        check(sensor.led_reg == 8'hBB,      "LED_CONFIG = 0xBB al mover SW[7:5]");
+        check(sensor.led_reg == 8'hBB && (!IS102 || sensor.led2_reg == 8'hBB),
+                                            "LEDs = 0xBB al mover SW[7:5]");
         sw[7:5] = 3'b000;
 
         wait_seconds(9);
