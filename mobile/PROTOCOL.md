@@ -1,48 +1,24 @@
-# Contrato provisional HB1 en Android
+# Recepción de HB1 en Android
 
-Este documento registra el comportamiento del receptor Android para coordinar
-las pruebas con el puente. [Propuesta del equipo](../shared/PROTOCOL.md)
+El [contrato compartido](../shared/PROTOCOL.md) define el formato y los UUID
+predeterminados. Android conserva UUID editables y tolera IBI de 250–2500 ms
+con Q=1. La FPGA emite IBI de 250–2000 ms.
 
-```text
-HB1,SEQ=000012,BPM=075,IBI=0800,Q=1
-```
-
-| Campo | Formato que acepta Android |
-| --- | --- |
-| `SEQ` | Seis dígitos, de 000000 a 999999. |
-| `BPM` | Tres dígitos. Para Q=1 se acepta de 30 a 240. |
-| `IBI` | Cuatro dígitos en milisegundos. Para Q=1 se acepta de 250 a 2500. |
-| `Q` | Un dígito, 1 para lectura válida y 0 para lectura inválida. |
-
-- Envía texto ASCII con LF al final de cada trama. Se admite CRLF. Una
-  notificación GATT puede contener una parte de una trama o varias completas.
-- Se acumulan hasta 128 caracteres de una línea. Una línea mayor produce un
-  error y se descarta hasta el siguiente LF. La siguiente línea se procesa
-  normalmente.
-- La primera trama aceptada fija la secuencia. El avance circular se calcula
-  módulo 1 000 000. Un avance cero es un duplicado y un avance de 500 000 o
-  mayor se rechaza como fuera de orden. El salto 999999 → 000000 se acepta.
-  Un salto menor hacia delante se conserva y se abre un segmento de gráfica
-  tras el hueco. El orden inicial se restablece al abrir una nueva conexión.
-- Una trama rechazada incrementa el contador de errores. Una trama Q=0 con
-  formato y secuencia correctos incrementa el contador de aceptadas, oculta BPM
-  e IBI y corta la gráfica. El historial almacena muestras de Q=1.
-- Cuatro segundos sin tramas aceptadas retiran BPM e IBI del monitor. El
-  tiempo se mide con reloj monotónico. Las fechas de historial se guardan como
-  milisegundos Unix.
-- Para GATT se requieren los UUID que confirme el equipo del puente. En el
-  enlace FPGA → ESP32 se espera UART a 115200, 8N1, con una trama por segundo.
-
-
-## Reinicio de secuencia de la FPGA
-
-La regla circular sigue siendo provisional. Dentro de una misma colección,
-el receptor no interpreta un salto de secuencia como reinicio. Por ejemplo,
-`001000 → 000001` se rechaza por orden y `999990 → 000010` se acepta como
-avance circular. Ambos casos podrían corresponder a un reinicio real.
-
-Para probar un reinicio conocido, detén la adquisición y vuelve a seleccionar
-el periférico para iniciar un parser nuevo. Queda por acordar con el equipo
-si el puente debe reiniciar el enlace al reiniciar la FPGA o si una revisión
-de HB1 debe anunciar un nuevo arranque explícitamente. La caducidad visual
-también puede ocurrir por pérdida de datos y no reinicia el contador.
+- El parser acumula notificaciones ASCII, admite LF y CRLF, y descarta líneas
+  de más de 128 caracteres hasta el siguiente LF.
+- La primera trama aceptada fija SEQ. El avance circular cero se rechaza como
+  duplicado y un avance de 500000 o mayor se rechaza por orden. El paso
+  999999 → 000000 es válido. Un salto hacia delante corta la gráfica y la
+  continuidad del detector.
+- Q=0 cuenta como trama aceptada. Retira BPM e IBI, corta la gráfica y
+  reinicia la continuidad del detector. El historial almacena Q=1.
+- Cuatro segundos sin tramas aceptadas retiran la lectura actual. El tiempo
+  transcurrido usa reloj monotónico y el historial guarda fechas Unix.
+- Cada adquisición utiliza un parser nuevo. Tras reiniciar la FPGA, pulsa
+  **Desconectar** y vuelve a elegir el ESP32. HB1 carece de identificador de
+  arranque. Por ejemplo, 001000 → 000000 se rechaza y 999990 → 000010 se
+  acepta como avance circular dentro de la misma conexión.
+- Marca **Fuente BLE sintética** para un puente de prueba sin nombre o
+  cuando la FPGA use PPG sintética. La app marca `HealthBand-Test` al ver
+  ese nombre en el escaneo. El historial usa la clasificación para elegir
+  la referencia de reposo.

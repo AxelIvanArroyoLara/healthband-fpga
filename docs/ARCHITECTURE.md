@@ -29,10 +29,10 @@ comunes se mantienen en [`../shared/`](../shared/).
 
 ## Interfaces y principios
 
-El protocolo provisional define el intercambio de mediciones; las decisiones
-BLE se documentarán cuando se aprueben. Se aplican ETC (evitar complejidad
-prematura y mantener puntos de cambio explícitos) y DRY (una sola definición
-del contrato compartido), sin duplicar reglas de validación entre módulos.
+El [contrato HB1](../shared/PROTOCOL.md) especifica UART, framing,
+secuencia y GATT. NimBLE en ESP32 clásico conserva líneas completas y calcula
+el límite de notificación con MTU ATT menos tres. Kotlin, Compose, MVVM y
+Room implementan el monitor, el parser y la persistencia local.
 
 ## Orden de integración
 
@@ -42,9 +42,10 @@ del contrato compartido), sin duplicar reglas de validación entre módulos.
 
 ## Limitaciones conocidas
 
-- El protocolo, UUID BLE, límites de campos y reconexión no son definitivos.
-- El framework Android y el modelo exacto de ESP32 están pendientes.
+- HB1 carece de identificador de arranque. Tras reiniciar la FPGA, se abre
+  una adquisición BLE nueva.
+- Están pendientes la variante exacta ESP32S, el breakout y la prueba física.
 - El análisis personalizado es experimental y no médico.
 - La calidad depende de sensor, contacto, alimentación y calibración.
-- Aún no están definidos los algoritmos de filtrado, las interfaces Verilog ni
-  las métricas de aceptación.
+- [FPGA](../fpga/README.md) describe los filtros, interfaces y pruebas.
+  El [checklist](PHYSICAL_TEST_CHECKLIST.md) define la aceptación física.

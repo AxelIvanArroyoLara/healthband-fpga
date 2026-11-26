@@ -136,12 +136,9 @@ con saturación, con muestras perdidas y con señal sin pulso.
 - La FPGA no guarda la secuencia entre reinicios: tras un reset vuelve a
   `000000`.
 
-Consecuencia para la app: con el parser actual, un reinicio de la FPGA
-(`001000 → 000000`) se rechaza como "fuera de orden" hasta que `SEQ` supere el
-último valor aceptado. Propuesta para Axel: tratar `SEQ=000000` que no venga
-después de `999999` como **arranque nuevo del emisor** (reiniciar el parser y
-abrir un segmento nuevo en la gráfica). Está anotado en
-[`../shared/PROTOCOL.md`](../shared/PROTOCOL.md) como pendiente de acuerdo.
+Tras un reset físico, desconecta y vuelve a elegir el ESP32 en Android.
+Dentro de una conexión sigue vigente la regla circular del
+[contrato HB1](../shared/PROTOCOL.md).
 
 ## Simulación
 
@@ -165,10 +162,10 @@ bash fpga/sim/run_icarus.sh
 Con ModelSim/Questa, desde la carpeta `fpga/`:
 
 ```bash
-python -I model/gen_stimulus.py
-python -I model/run_reference.py
+python3 -I model/gen_stimulus.py
+python3 -I model/run_reference.py
 vsim -c -do sim/run_questa.do
-python -I model/compare_rtl.py
+python3 -I model/compare_rtl.py
 ```
 
 Para capturas de formas de onda: `vsim -do sim/wave_processor.do`.
@@ -179,8 +176,12 @@ Evidencias que quedan en `evidence/rtl/`: CSV de latidos y por segundo,
 
 ## Prueba en la placa
 
-1. Abrir `quartus/healthband.qpf`, compilar (Processing → Start Compilation)
-   y programar la DE10-Lite con `output_files/healthband.sof`.
+1. En un equipo con Quartus Prime Lite y soporte MAX 10, abre
+   `quartus/healthband.qpf` y ejecuta **Processing → Start Compilation**, o
+   ejecuta `quartus_sh --flow compile healthband` desde `fpga/quartus`.
+   Revisa `output_files/healthband.fit.rpt` y `output_files/healthband.sta.rpt`,
+   incluyendo recursos, reloj de 50 MHz y slack, antes de usar
+   `output_files/healthband.sof` en el Programmer.
 2. Conectar el MAX30100 y el ESP32 como se indica abajo.
 3. Interruptores:
 
@@ -203,13 +204,13 @@ Prueba sin sensor: SW = 1000000001 (SW9 y SW0 arriba) → la app debería
 mostrar 75 BPM a los ~5 s (prueba compartida 1).
 
 Prueba con sensor: todos los SW abajo, dedo sobre el sensor sin apretar ni
-moverlo. LEDR8 debe encenderse al instante; HEX muestra el BPM a los 5–10 s.
+moverlo. LEDR8 se activa tras configurar el sensor. Espera varios latidos antes de comparar el display.
 
 ## Conectar el MAX30100
 
 | MAX30100 (módulo) | DE10-Lite | Señal en el diseño |
 | --- | --- | --- |
-| VIN | JP1 pin 29 (3.3 V) | — |
+| VIN | JP1 pin 29 ofrece 3,3 V. Usar solo si se confirma compatibilidad del breakout. | Alimentación según el módulo |
 | GND | JP1 pin 30 (o pin 12) | — |
 | SCL | JP1 pin 1 (`PIN_V10`) | `GPIO[0]` |
 | SDA | JP1 pin 2 (`PIN_W10`) | `GPIO[1]` |
@@ -225,10 +226,13 @@ Notas:
 - El I²C va a 100 kHz. SCL y SDA son open drain y tienen el pull-up débil
   interno de la FPGA activado en el QSF; aun así conviene que el módulo tenga
   sus resistencias de pull-up (casi todos las traen).
-- Algunos módulos morados "GY-MAX30100" suben SDA/SCL a 1.8 V con su
-  regulador interno. Si LEDR8 nunca enciende, revisar esto: la solución
-  común es quitar las resistencias de pull-up del módulo (o puentearlas a
-  3.3 V) y dejar las de la FPGA o poner 4.7 kΩ externas a 3.3 V.
+- SCL se libera en open drain, pero el maestro no lee SCL y carece
+  de clock stretching. El datasheet y el modelo usado permiten el flujo
+  previsto con el MAX30100 a 100 kHz. Si SCL sigue bajo al liberarse,
+  comprueba niveles, reposo y tiempos de subida con analizador lógico.
+- Identifica en el breakout las alimentaciones y el rail de los pull-ups.
+  Mide SDA/SCL en reposo y verifica umbrales de ambos extremos antes de
+  decidir si se necesita adaptar niveles.
 - Diagnóstico rápido con SW8 = 1: si HEX5..HEX4 muestran `11` el I²C funciona.
   Con el dedo puesto el IR crudo (HEX3..HEX0) debe estar más o menos entre
   `2000` y `F000` (8 000–61 000) y variar un poco con el pulso. Si está cerca de
@@ -243,8 +247,11 @@ Notas:
 - Compilar en Quartus, revisar warnings, TimeQuest y Power Analyzer (paso 5 de la guía).
 - Probar el MAX30100 real en la placa (LEDR8, PART_ID = `11`, IR crudo con SW8).
 - Ajustar `CONTACT_MIN`, `SAT_LEVEL` y `MIN_AMP` con el CSV real del MAX30100.
-- Acordar con Axel la regla de reinicio de `SEQ`.
+- SpO₂ queda fuera del MVP. El canal RED se adquiere para usos futuros.
+- El QSF coincide con el mapa JP1 del manual Terasic, figura 3-18 y tabla 3-7.
+  [Manual DE10-Lite](https://www.mouser.com/datasheet/3/996/1/DE10-Lite_User_Manual.pdf)
+  [Datasheet MAX30100](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX30100.pdf)
 - Limitación conocida: si la deriva de la línea base es mayor que el pulso, o
   la onda dicrótica es casi tan alta como la sístole, el detector no logra
   estabilizarse y reporta Q=0 (caso `doublepeak075`). Es el comportamiento
-  seguro: nunca reporta un BPM falso como válido.
+  observado en ese escenario sintético.

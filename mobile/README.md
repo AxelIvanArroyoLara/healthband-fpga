@@ -124,11 +124,12 @@ anotaciones del usuario y este prototipo carece de validación clínica.
 
 ## Configurar el ESP32 real
 
-1. Confirma el modelo con BLE, el UUID del servicio y el UUID de la
-   característica con el equipo del puente. La característica debe admitir
-   notificaciones o indicaciones con descriptor CCCD.
-2. Enciende Bluetooth, abre **Configurar Bluetooth LE** e introduce ambos UUID
-   completos. La app muestra **BLE sin configurar** mientras falte un UUID.
+1. Confirma el modelo ESP32 clásico y el perfil flasheado. La característica
+   de salida admite Notify con descriptor CCCD.
+2. Enciende Bluetooth y abre **Configurar Bluetooth LE**. Los UUID iniciales
+   coinciden con el puente. Puedes editarlos para otro periférico compatible.
+   Marca **Fuente BLE sintética** para PPG sintética desde la FPGA o para
+   un puente de prueba cuando el escaneo no muestre `HealthBand-Test`.
 3. Pulsa **Buscar dispositivos**, concede los permisos solicitados y elige el
    ESP32. El escaneo dura hasta diez segundos y la suscripción hasta quince.
 4. Tras una desconexión, vuelve a seleccionar el periférico para iniciar una
@@ -138,8 +139,9 @@ anotaciones del usuario y este prototipo carece de validación clínica.
    confirmación CCCD se presenta como fallo de conexión. Cuando el descriptor
    ya se confirmó, la terminación se presenta como desconexión.
 
-La política de reinicio del contador dentro de una conexión y los rangos
-definitivos dependen del acuerdo con firmware y FPGA.
+Si reinicias la FPGA, desconecta y vuelve a elegir el periférico.
+El simulador normal emite valores válidos. Usa **Simular errores de
+comunicación** para duplicados, líneas malformadas y Q=0.
 [Contrato HB1 de la app](PROTOCOL.md)
 [Permisos Bluetooth de Android](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions)
 [Conexión GATT en Android](https://developer.android.com/reference/android/bluetooth/BluetoothDevice)
@@ -168,16 +170,15 @@ reportar 0 errores y 11 advertencias de versiones y recursos de plantilla.
 | Error reproducible, gravedad alta | Una transacción retenida en Room impedía publicar una segunda lectura ya disponible. La prueba falló con el código anterior y pasó con la escritura desacoplada. |
 | Riesgo técnico confirmado, gravedad alta | Una excepción de Room recorría el mismo manejo que un fallo de transporte. Una prueba con excepción inyectada confirma que ahora BLE sigue entregando lecturas y Room conserva las transacciones previas. |
 | Riesgo técnico confirmado, gravedad media | Una terminación GATT previa al CCCD figuraba como desconexión y el timeout podía competir con la confirmación. Se separaron los estados y se serializó la confirmación con el timeout. |
-| Limitación pendiente de hardware | Faltan modelo, UUID, configuración GATT y pruebas físicas. El formato provisional HB1 carece de identificador de arranque para reconocer de forma inequívoca un reinicio de la FPGA. |
+| Limitación pendiente de hardware | Faltan confirmar el modelo físico y las pruebas de radio. HB1 carece de identificador de arranque para reconocer de forma inequívoca un reinicio de la FPGA. |
 | Mejora opcional | Un registro de eventos de calidad permitiría atribuir los huecos. Los segmentos y tiempos del esquema actual cubren la gráfica del MVP. |
 
 ### Procedimiento con hardware
 
-1. **ESP32 con datos sintéticos.** Configura el puente con los UUID acordados.
-   Emite 100 tramas válidas a 1 Hz, intercala 10 líneas malformadas y reparte
-   algunas tramas en fragmentos de distintos tamaños. Compara el contador
-   de aceptadas y errores con la secuencia enviada. Agrega por separado un
-   duplicado, un salto y una trama Q=0 para verificar sus efectos.
+1. **ESP32 con datos sintéticos.** Flashea BLE_TEST con fragmentación y
+   registra 100 tramas a 1 Hz. Cambia al escenario Q=0 y verifica el corte
+   de gráfica. Para inyectar duplicados, saltos y líneas malformadas en el
+   puente, usa UART_BRIDGE con adaptador UART y tramas de prueba.
 2. **Interrupción.** Pausa más de cuatro segundos con el enlace vivo. Verifica
    que los valores actuales desaparecen y regresan con la siguiente trama.
    Apaga el periférico, comprueba el estado desconectado y vuelve a

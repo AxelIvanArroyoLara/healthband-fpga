@@ -26,7 +26,10 @@ historial local y la detección personalizada de anomalías.
 - [`shared/`](shared/): interfaces y protocolo común.
 - [`docs/`](docs/): arquitectura y decisiones del proyecto.
 
-La implementación de aplicaciones, firmware y módulos Verilog se realizará
-posteriormente. Consulte [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) para el
-orden de integración y [`docs/DECISIONS.md`](docs/DECISIONS.md) para las
-decisiones pendientes.
+## Integración
+
+Empieza por la [guía física](docs/PHYSICAL_INTEGRATION_GUIDE.md) y registra
+cada resultado en el [checklist](docs/PHYSICAL_TEST_CHECKLIST.md). El
+[estado de integración](docs/FINAL_INTEGRATION_STATUS.md) indica pruebas,
+binarios y bloqueos. El recorrido automatizado RTL–C–Android se ejecuta
+desde la raíz con `bash shared/test_hb1.sh`.
